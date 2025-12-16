@@ -1,4 +1,4 @@
-from evaluation import SIMILARITY_FEATURES
+from evaluation.metrics import SIMILARITY_FEATURES
 global V_LENGTH
 V_LENGTH = 18
 
