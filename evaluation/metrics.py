@@ -6,18 +6,23 @@ FEATURE_WEIGHTS = {
     'loudness': 1.0, 'acousticness': 0.8, 'instrumentalness': 1.3, 
     'liveness': 0.9, 'speechiness': 1.0
 }
+WEIGHTS = np.array([FEATURE_WEIGHTS[f] for f in SIMILARITY_FEATURES])
 
-def get_similarity(vector_a: list[float], vector_b: list[float]) -> float:
-    # Convert the vectors to numpy arrays
-    a = np.array(vector_a)
-    b = np.array(vector_b)
-
+def get_similarity_weighted(vector_a: np.ndarray[float], vector_b: np.ndarray[float]) -> float:
     # Apply the weights to the vectors
-    weights = np.array([FEATURE_WEIGHTS[f] for f in SIMILARITY_FEATURES])
-    a_weighted = a * weights
-    b_weighted = b * weights
+    a_weighted = vector_a * WEIGHTS
+    b_weighted = vector_b * WEIGHTS
+    a_norm = np.linalg.norm(a_weighted)
+    b_norm = np.linalg.norm(b_weighted)
 
-    # Calculate cosine similarity between the weighted vectors
-    similarity = np.dot(a_weighted, b_weighted) / (np.linalg.norm(a_weighted) * np.linalg.norm(b_weighted))
-    
-    return similarity
+    # calling get_similarity with weighted vectors
+    return get_similarity(
+        a_weighted,
+        b_weighted,
+        a_norm,
+        b_norm
+    )
+
+def get_similarity(vector_a: np.ndarray[float], vector_b: np.ndarray[float], vector_a_norm: float, vector_b_norm: float) -> float:
+    # Calculate cosine similarity between the two vectors
+    return np.dot(vector_a, vector_b) / (vector_a_norm * vector_b_norm)

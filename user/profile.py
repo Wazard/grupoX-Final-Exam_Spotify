@@ -11,13 +11,20 @@ class UserProfile:
     def __init__(self):
         self.liked_song_vectors: List[List[float]] = []
         self.disliked_song_vectors: List[List[float]] = []
+        self.liked_song_ids: list[str] = []
+        self.disliked_song_ids: list[str] = []
 
     # ---------- feedback ----------
-    def like(self, song_vector: List[float]):
+    def like(self, song_vector: List[float], song_id: str = None):
         self.liked_song_vectors.append(song_vector)
+        if song_id is not None:
+            self.liked_song_ids.append(song_id)
 
-    def dislike(self, song_vector: List[float]):
+    def dislike(self, song_vector: List[float], song_id: str = None):
         self.disliked_song_vectors.append(song_vector)
+        if song_id is not None:
+            self.disliked_song_ids.append(song_id)
+    
 
     # ---------- profile computation ----------
     def has_profile(self) -> bool:
