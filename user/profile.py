@@ -14,38 +14,56 @@ class UserProfile:
         self.liked_song_ids: list[str] = []
         self.disliked_song_ids: list[str] = []
 
-    # ---------- feedback ----------
+    # --- feedback ---
     def like(self, song_vector: List[float], song_id: str = None):
+        '''
+        Adds song_vector to liked vectors
+        optional: adds song_id to liked ids
+        '''
         self.liked_song_vectors.append(song_vector)
         if song_id is not None:
             self.liked_song_ids.append(song_id)
 
     def dislike(self, song_vector: List[float], song_id: str = None):
+        '''
+        Adds song_vector to disliked vectors
+        optional: adds song_id to disliked ids
+        '''
         self.disliked_song_vectors.append(song_vector)
         if song_id is not None:
             self.disliked_song_ids.append(song_id)
     
 
-    # ---------- profile computation ----------
+    # --- profile computation ---
     def has_profile(self) -> bool:
         return len(self.liked_song_vectors) > 0
 
     def get_profile_vector(self) -> List[float]:
+        '''
+        Returns user preferences in a vectorized form
+        
+        :param self: Description
+        :return: Description
+        :rtype: List[float]
+        '''
+        
         if not self.has_profile():
-            raise ValueError("User profile is empty (no liked songs).")
+            raise ValueError("User profile is empty (no liked songs).") # to be replaced with custom error warns
+        
         if self.liked_song_vectors:
-            positive = np.mean(np.array(self.liked_song_vectors), axis=0)
+            profile = np.mean(np.array(self.liked_song_vectors), axis=0)
 
         if self.disliked_song_vectors:
             negative = np.mean(np.array(self.disliked_song_vectors), axis=0)
-            profile = positive - DISLIKE_WEIGHT * negative
-        else:
-            profile = positive
-
+            profile -= negative * DISLIKE_WEIGHT
+        
         return profile.tolist()
 
-    # ---------- persistence ----------
+    # --- persistence ---
     def save(self, path: str = PROFILE_PATH):
+        '''
+        Save user profile as json to path
+        '''
         data = {
             "liked_vectors": self.liked_song_vectors,
             "disliked_vectors": self.disliked_song_vectors
@@ -54,8 +72,8 @@ class UserProfile:
             json.dump(data, f)
 
     @classmethod
-    def load(cls, path: str = PROFILE_PATH):
-        profile = cls()
+    def load(self, path: str = PROFILE_PATH):
+        profile = self()
 
         if not os.path.exists(path):
             return profile  # empty profile

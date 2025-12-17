@@ -8,11 +8,12 @@ def vectorize_song(song_row, include_id: bool = False) -> tuple[list[float],str]
     :return: Description
     :rtype: tuple[list[float], str]
     '''
+    # Init empty vector
     vector:list[float] = []
-
+    # Only append similarity features
     for feature in SIMILARITY_FEATURES:
         vector.append(song_row[feature])
-
+    # Save Id if asked
     if include_id:
         song_id = song_row['track_id']
         return vector,song_id
