@@ -2,7 +2,6 @@ from evaluation.metrics import SIMILARITY_FEATURES
 import pandas as pd
 import numpy as np
 
-
 def vectorize_song(song_row, include_id: bool = False) -> tuple[np.ndarray, str] | np.ndarray:
     '''
     takes a song, returns a vectorized form + its id
@@ -17,7 +16,6 @@ def vectorize_song(song_row, include_id: bool = False) -> tuple[np.ndarray, str]
     if include_id:
         return vector, song_row['track_id']
     return vector
-
 
 def vectorize_songs_batch(df, include_ids: bool = False):
     """

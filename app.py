@@ -43,13 +43,14 @@ class App:
 
     # --- App decision logic ---
     def choose_recommender(self):
+
         liked = len(self.user_profile.liked_song_vectors)
         disliked = len(self.user_profile.disliked_song_vectors)
 
-        if liked == 0:
+        if not self.user_profile.has_profile():
             return self.recommender.COLD_START
 
-        if (liked < 10 and disliked > liked * 1.5) or liked < 10:
+        if liked < 10:
             return self.recommender.FALLBACK
 
         if liked + disliked < 200:
@@ -65,7 +66,7 @@ class App:
             seen_track_ids = set(self.user_profile.liked_song_ids + self.user_profile.disliked_song_ids)
             
             if self.user_profile.has_profile():
-                user_vector = np.array(self.user_profile.get_profile_vector())
+                user_vector = np.array(self.user_profile.profile_vector)
 
             start_time = time.perf_counter()
 
@@ -88,7 +89,8 @@ class App:
                 recommendations = generate_ranking(
                     df = self.df,
                     user_vector = user_vector,
-                    seen_track_ids = seen_track_ids,
+                    liked_track_ids = self.user_profile.liked_song_ids,
+                    disliked_track_ids = self.user_profile.disliked_song_ids,
                     n_songs = BATCH_SIZE
                 )
 

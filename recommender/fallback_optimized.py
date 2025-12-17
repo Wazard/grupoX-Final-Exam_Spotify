@@ -8,7 +8,7 @@ N_SONGS = 10
 POPULARITY_THRESHOLD = 75
 
 MAX_SIM_DISLIKED = 0.85
-MIN_SIM_LIKED = 0.65
+MIN_SIM_LIKED = 0.1
 
 
 def generate_fallback_songs(
