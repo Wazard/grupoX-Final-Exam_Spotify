@@ -1,8 +1,10 @@
+from recommender.fallback_optimized import generate_fallback_songs # optimized takes roughly 20 times LESS than fallback
+from recommender.cold_start import generate_cold_start_songs
+from recommender.ranking import generate_ranking
+import pandas as pd
+import numpy as np
 import enum
 import time
-import pandas as pd
-from recommender.cold_start import generate_cold_start_songs
-from recommender.fallback_optimized import generate_fallback_songs # optimized takes roughly 10 times LESS than fallback
 
 from features.song_representation import vectorize_song
 from user.profile import UserProfile
@@ -17,8 +19,9 @@ class App:
         self.user_profile = UserProfile.load()
     
     class recommender(enum.Enum):
-        COLD_START = "cold_start"
-        FALLBACK = "fallback"
+        COLD_START = 0
+        FALLBACK = 1
+        RANKING = 2
 
 
     # --- Feedback collection ---
@@ -31,9 +34,9 @@ class App:
             vector, track_id = vectorize_song(song, include_id=True)
 
             if answer == "Y":
-                self.user_profile.like(vector, track_id)
+                self.user_profile.like(vector.tolist(), track_id)
             else:
-                self.user_profile.dislike(vector, track_id)
+                self.user_profile.dislike(vector.tolist(), track_id)
 
         self.user_profile.save()
 
@@ -46,10 +49,11 @@ class App:
         if liked == 0:
             return self.recommender.COLD_START
 
-        if liked < 7 and disliked > liked * 1.5:
+        if (liked < 10 and disliked > liked * 1.5) or liked < 10:
             return self.recommender.FALLBACK
 
-        return self.recommender.FALLBACK
+        if liked + disliked < 200:
+            return self.recommender.RANKING
 
     # --- Main app loop ---
     def run(self):
@@ -58,9 +62,10 @@ class App:
         while True:
             mode = self.choose_recommender()
 
-            seen_track_ids = set(
-                self.user_profile.liked_song_ids + self.user_profile.disliked_song_ids
-            )
+            seen_track_ids = set(self.user_profile.liked_song_ids + self.user_profile.disliked_song_ids)
+            
+            if self.user_profile.has_profile():
+                user_vector = np.array(self.user_profile.get_profile_vector())
 
             start_time = time.perf_counter()
 
@@ -72,10 +77,19 @@ class App:
                 print("\n--- Exploration Fallback Recommendations ---")
                 recommendations = generate_fallback_songs(
                     df = self.df,
-                    liked_vectors=self.user_profile.liked_song_vectors,
-                    disliked_vectors=self.user_profile.disliked_song_vectors,
-                    seen_track_ids=seen_track_ids,
-                    n_songs=BATCH_SIZE
+                    liked_vectors = self.user_profile.liked_song_vectors,
+                    disliked_vectors = self.user_profile.disliked_song_vectors,
+                    seen_track_ids = seen_track_ids,
+                    n_songs = BATCH_SIZE
+                )
+            
+            elif mode == self.recommender.RANKING:
+                print("\n--- Ranking Recommendations ---")
+                recommendations = generate_ranking(
+                    df = self.df,
+                    user_vector = user_vector,
+                    seen_track_ids = seen_track_ids,
+                    n_songs = BATCH_SIZE
                 )
 
             elapsed = time.perf_counter() - start_time

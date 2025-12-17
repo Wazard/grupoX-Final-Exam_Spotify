@@ -1,4 +1,4 @@
-from features.song_representation import vectorize_song
+from features.song_representation import vectorize_songs_batch
 from evaluation.metrics import get_similarity, WEIGHTS
 import pandas as pd
 import numpy as np
@@ -43,14 +43,14 @@ def generate_fallback_songs(
     # Avoids calling vectorize_song inside the loop
     if "vector" not in candidates.columns:
         candidates = candidates.copy()
-        candidates["vector"] = candidates.apply(vectorize_song, axis=1)
+        candidates["vector"] = list(vectorize_songs_batch(candidates))
 
     # --- OPTIMIZATION 2: convert liked/disliked vectors to NumPy ---
-    liked_vecs = [np.array(v) for v in liked_vectors]
-    disliked_vecs = [np.array(v) for v in disliked_vectors]
+    np_liked_vectors = np.array(liked_vectors)
+    np_disliked_vectors = np.array(disliked_vectors)
 
-    weighted_liked_norms = [np.linalg.norm(v*WEIGHTS) for v in liked_vecs]          #  calculating weights out of get_similarity_weighted 
-    weighted_disliked_norms = [np.linalg.norm(v*WEIGHTS) for v in disliked_vecs]    #          as it's faster doing it all at once
+    weighted_liked_norms = np.linalg.norm(np_liked_vectors * WEIGHTS, axis=1)          #  calculating weights out of get_similarity_weighted 
+    weighted_disliked_norms = np.linalg.norm(np_disliked_vectors * WEIGHTS, axis=1)    #          as it's faster doing it all at once
 
     scored_candidates = []
 
@@ -61,7 +61,7 @@ def generate_fallback_songs(
         song_norm = np.linalg.norm(song_vec)
 
         max_sim_disliked = 0.0
-        for dv, dv_norm in zip(disliked_vecs, weighted_disliked_norms):
+        for dv, dv_norm in zip(np_disliked_vectors, weighted_disliked_norms):
             sim = get_similarity(song_vec, dv, song_norm, dv_norm)
             if sim > MAX_SIM_DISLIKED:
                 max_sim_disliked = sim
@@ -71,7 +71,7 @@ def generate_fallback_songs(
             continue  # skip bad region entirely
 
         max_sim_liked = 0.0
-        for lv, lv_norm in zip(liked_vecs, weighted_liked_norms):
+        for lv, lv_norm in zip(np_liked_vectors, weighted_liked_norms):
             sim = get_similarity(song_vec, lv, song_norm, lv_norm)
             if sim > max_sim_liked:
                 max_sim_liked = sim

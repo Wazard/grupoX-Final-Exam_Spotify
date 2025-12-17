@@ -4,7 +4,7 @@ import json
 import os
 
 PROFILE_PATH = "user/user_profile.json"
-DISLIKE_WEIGHT = 0.3
+DISLIKE_WEIGHT = 0.1
 
 
 class UserProfile:
