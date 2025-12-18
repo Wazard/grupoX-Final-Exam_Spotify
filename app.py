@@ -1,8 +1,10 @@
+from features.spotify_api import SpotifyTokenManager, get_spotify_links_and_images
 from recommender.fallback_optimized import generate_fallback_songs # optimized takes roughly 20 times LESS than fallback
 from recommender.cold_start import generate_cold_start_songs
 from recommender.ranking import generate_ranking
 import pandas as pd
 import numpy as np
+import pyperclip
 import enum
 import time
 
@@ -10,7 +12,7 @@ from features.song_representation import vectorize_song
 from user.profile import UserProfile
 
 DATA_PATH = "data/processed/tracks_processed_normalized.csv"
-BATCH_SIZE = 20
+BATCH_SIZE = 20 # must be < 50
 
 class App:
     def __init__(self):
@@ -27,8 +29,9 @@ class App:
     # --- Feedback collection ---
     def collect_user_feedback(self, recommendations: pd.DataFrame):
         for _, song in recommendations.iterrows():
+            pyperclip.copy(song['track_url'])
             answer = input(
-                f"Do you like '{song['track_name']}' by {song['artists']}? (Y/N): "
+                f"Do you like '{song['track_name']}' by {song['artists']}? (url copied to clipboard) [Y/N]: "
             ).strip().upper()
 
             vector, track_id = vectorize_song(song, include_id=True)
@@ -39,7 +42,6 @@ class App:
                 self.user_profile.dislike(vector.tolist(), track_id)
 
         self.user_profile.save()
-
 
     # --- App decision logic ---
     def choose_recommender(self):
@@ -59,6 +61,8 @@ class App:
     # --- Main app loop ---
     def run(self):
         print("\nMusic Recommendation App Started\n")
+        token_manager = SpotifyTokenManager()
+        spotify_token = token_manager.get_token()
 
         while True:
             mode = self.choose_recommender()
@@ -98,7 +102,20 @@ class App:
 
             print(f"\n[INFO] Recommendation generated in {elapsed:.3f} seconds")
 
+            track_ids = recommendations["track_id"].astype(str).tolist()
+
+            links_images = get_spotify_links_and_images(track_ids, spotify_token)
+
+            recommendations["track_url"] = recommendations["track_id"].map(
+                lambda tid: links_images.get(tid, {}).get("spotify_url")
+            )
+
+            recommendations["album_image"] = recommendations["track_id"].map(
+                lambda tid: links_images.get(tid, {}).get("image_url")
+            )
+
             self.collect_user_feedback(recommendations)
+
 
             cont = input("\nContinue recommending? (Y/N): ").strip().upper()
             if cont != "Y":

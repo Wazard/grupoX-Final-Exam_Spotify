@@ -4,7 +4,7 @@ import os
 
 PROFILE_PATH = "user/user_profile.json"
 DISLIKE_WEIGHT = 0.01    # How much disliked songs count on user_vector
-TIME_FACTOR = 0.04      # how much does newer feedback weight on older songs (.01 means: old_profile=96%, new_song = 4%)
+TIME_FACTOR = 0.04      # how much does newer feedback weight on older songs (.04 means: old_profile=96%, new_song = 4%)
 
 
 class UserProfile:

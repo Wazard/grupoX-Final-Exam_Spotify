@@ -3,7 +3,6 @@ import pandas as pd
 N_SONGS = 10
 POPULARITY_THRESHOLD = 25
 
-
 def generate_cold_start_songs(df: pd.DataFrame, n_songs: int = N_SONGS) -> pd.DataFrame:
     """
     Generate a cold-start recommendation list.
