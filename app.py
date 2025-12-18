@@ -1,17 +1,11 @@
-from recommender.model_data import (
-    generate_model_rank,
-    build_training_data,
-    train_like_model,
-)
 from features.spotify_api import SpotifyTokenManager, get_spotify_links_and_images
+from recommender.model_data import generate_model_rank, train_models_if_needed
 from recommender.fallback_optimized import generate_fallback_songs
 from recommender.new_cold_start import generate_cold_start_songs
 from recommender.ranking import generate_ranking
 from features.song_representation import vectorize_song
 from user.profile import UserProfile
-
 import pandas as pd
-import numpy as np
 import pyperclip
 import enum
 import time
@@ -19,6 +13,10 @@ import time
 
 DATA_PATH = "data/processed/tracks_processed_normalized.csv"
 BATCH_SIZE = 10  # must be <= 50 for Spotify batch endpoints
+COLD_START_BATCH_MUL = 2 # multiplier for cold start batch size, 1 = batch_size, 2 = 2*batch_size
+
+BATCH_SIZE = min(BATCH_SIZE, 50) # caps batch size at 50
+COLD_START_BATCH_MUL = min(BATCH_SIZE*COLD_START_BATCH_MUL, 50)/BATCH_SIZE # caps cold start batch size at 50 
 
 class App:
     class Recommender(enum.Enum):
@@ -77,13 +75,15 @@ class App:
     # -------------------------------------------------
     def choose_recommender(self):
         c = self.user_profile.confidence
+        n = len(self.user_profile.seen_song_ids)
 
         if c < 2:
             return self.Recommender.COLD_START
         if c < 4:
             return self.Recommender.FALLBACK
-        if c < 10:
+        if c < 9.5 and n < 150:
             return self.Recommender.RANKING
+        
         return self.Recommender.MODEL
 
     # -------------------------------------------------
@@ -155,6 +155,7 @@ class App:
     # Main loop
     # -------------------------------------------------
     def run(self):
+
         print("\nMusic Recommendation App Started\n")
 
         while True:
@@ -164,13 +165,14 @@ class App:
 
             if mode == self.Recommender.COLD_START:
                 print("\n--- Cold Start ---")
-                recs = generate_cold_start_songs(self.df, BATCH_SIZE)
+                recs = generate_cold_start_songs(self.df, BATCH_SIZE * COLD_START_BATCH_MUL)
 
             elif mode == self.Recommender.FALLBACK:
                 print("\n--- Fallback ---")
                 recs = generate_fallback_songs(
                     df=self.df,
                     user_profile=self.user_profile,
+                    seen_track_ids=self.user_profile.seen_song_ids,
                     n_songs=BATCH_SIZE,
                 )
 
@@ -185,21 +187,21 @@ class App:
             else:
                 print("\n--- Model ---")
 
-                if self.model is None:
-                    self.train_data = build_training_data(
-                        df=self.df,
-                        liked_ids=self.user_profile.liked_song_ids,
-                        disliked_ids=self.user_profile.disliked_song_ids,
-                    )
-                    self.model = train_like_model(*self.train_data)
-                    self.last_model_train_seen = len(self.user_profile.seen_song_ids)
+                # Train / refresh per-taste models only when needed
+                self.last_model_train_seen = train_models_if_needed(
+                    df=self.df,
+                    user_profile=self.user_profile,
+                    last_train_seen=self.last_model_train_seen,
+                )
 
+                # Generate recommendations using ALL taste profiles
                 recs = generate_model_rank(
                     df=self.df,
-                    model=self.model,
+                    user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
                     n_songs=BATCH_SIZE,
                 )
+
 
             elapsed = time.perf_counter() - start
             print(f"[INFO] Generated in {elapsed:.3f}s")
