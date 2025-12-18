@@ -2,8 +2,8 @@ import numpy as np
 
 SIMILARITY_FEATURES = ['danceability', 'energy', 'valence', 'tempo', 'loudness', 'acousticness', 'instrumentalness', 'liveness', 'speechiness']
 FEATURE_WEIGHTS = {
-    'danceability': 1.0, 'energy': 1.2, 'valence': 0.9, 'tempo': 1.1, 
-    'loudness': 1.0, 'acousticness': 0.8, 'instrumentalness': 1.3, 
+    'danceability': 1.0, 'energy': 1.0, 'valence': 0.9, 'tempo': 1.1, 
+    'loudness': 1.0, 'acousticness': 0.8, 'instrumentalness': 1.0, 
     'liveness': 0.9, 'speechiness': 1.0
 }
 WEIGHTS = np.array([FEATURE_WEIGHTS[f] for f in SIMILARITY_FEATURES])
