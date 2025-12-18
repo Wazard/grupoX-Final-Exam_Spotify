@@ -9,7 +9,7 @@ SPOTIFY_TRACKS_ENDPOINT = "https://api.spotify.com/v1/tracks"
 
 def get_spotify_links_and_images(
     track_ids: list[str],
-    access_token: str
+    spotify_token: str
 ) -> dict[str, dict[str, str]]:
     """
     Given a list of Spotify track IDs, return a mapping:
@@ -30,7 +30,7 @@ def get_spotify_links_and_images(
         }
 
         headers = {
-            "Authorization": f"Bearer {access_token}"
+            "Authorization": f"Bearer {spotify_token}"
         }
 
         r = requests.get(

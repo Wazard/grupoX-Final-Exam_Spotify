@@ -1,111 +1,120 @@
+import numpy as np
+import pandas as pd
 from features.song_representation import vectorize_songs_batch
 from evaluation.metrics import get_similarity, WEIGHTS
-import pandas as pd
-import numpy as np
-
+from user.profile import UserProfile
 
 N_SONGS = 10
-POPULARITY_THRESHOLD = 75
 
-MAX_SIM_DISLIKED = 0.85
-MIN_SIM_LIKED = 0.1
+TARGET_SIM = 0.50
+SIM_SPREAD = 0.25
+
+DISLIKE_PENALTY = 0.25
+PROFILE_BALANCE = 0.7   # how evenly we sample from taste profiles
 
 
 def generate_fallback_songs(
     df: pd.DataFrame,
-    liked_vectors: list[list[float]],
-    disliked_vectors: list[list[float]],
-    seen_track_ids: set,
+    user_profile: UserProfile,
     n_songs: int = N_SONGS
 ) -> pd.DataFrame:
     """
-    Optimized fallback recommender.
+    Multi-profile fallback recommender.
 
-    Optimizations applied:
-    - Precomputed song vectors (no repeated vectorization)
-    - Precomputed norms for similarity (no repeated norm computation)
-    - Replaced iterrows() with itertuples()
+    Strategy:
+    - Each taste profile defines an exploration band
+    - Songs are scored against their closest profile
+    - Exploration happens *around* tastes, not across the whole space
     """
-
-    # --- Phase 1: candidate pool pruning ---
+    taste_profiles = user_profile.taste_profiles
+    seen_track_ids = user_profile.seen_song_ids
+    # ---------- Phase 1: candidate pool ----------
     candidates = df.dropna()
     candidates = candidates[~candidates["track_id"].isin(seen_track_ids)]
-    candidates = candidates[candidates["popularity"] < POPULARITY_THRESHOLD]
 
-    # --- Phase 2: compute genre rarity weights ---
-    genre_counts = candidates["track_genre"].value_counts()
-    genre_weights = {
-        genre: 1 / np.sqrt(count)
-        for genre, count in genre_counts.items()
-    }
+    if candidates.empty or not taste_profiles:
+        return pd.DataFrame()
 
-    # --- OPTIMIZATION 1: precompute vectors once ---
-    # Avoids calling vectorize_song inside the loop
+    # ---------- Phase 2: precompute vectors ----------
     if "vector" not in candidates.columns:
         candidates = candidates.copy()
         candidates["vector"] = list(vectorize_songs_batch(candidates))
 
-    # --- OPTIMIZATION 2: convert liked/disliked vectors to NumPy ---
-    np_liked_vectors = np.array(liked_vectors)
-    np_disliked_vectors = np.array(disliked_vectors)
+    # ---------- Phase 3: prepare profiles ----------
+    active_profiles = [
+        p for p in taste_profiles
+        if p.confidence > 0 and np.linalg.norm(p.vector) > 0
+    ]
 
-    weighted_liked_norms = np.linalg.norm(np_liked_vectors * WEIGHTS, axis=1)          #  calculating weights out of get_similarity_weighted 
-    weighted_disliked_norms = np.linalg.norm(np_disliked_vectors * WEIGHTS, axis=1)    #          as it's faster doing it all at once
+    if not active_profiles:
+        return pd.DataFrame()
 
-    scored_candidates = []
+    profile_vectors = [
+        p.vector * WEIGHTS for p in active_profiles
+    ]
+    profile_norms = [
+        np.linalg.norm(v) for v in profile_vectors
+    ]
 
-    # --- OPTIMIZATION 3: use itertuples (much faster than iterrows) ---
+    scored = []
+
+    # ---------- Phase 4: scoring ----------
     for row in candidates.itertuples(index=False):
-
-        song_vec = row.vector * WEIGHTS         # Again, weighting outside of get_similarity
+        song_vec = row.vector * WEIGHTS
         song_norm = np.linalg.norm(song_vec)
+        if song_norm == 0:
+            continue
 
-        max_sim_disliked = 0.0
-        for dv, dv_norm in zip(np_disliked_vectors, weighted_disliked_norms):
-            sim = get_similarity(song_vec, dv, song_norm, dv_norm)
-            if sim > MAX_SIM_DISLIKED:
-                max_sim_disliked = sim
-                break
+        # ---- find closest taste profile ----
+        sims = [
+            get_similarity(song_vec, pv, song_norm, pn)
+            for pv, pn in zip(profile_vectors, profile_norms)
+        ]
 
-        if max_sim_disliked > MAX_SIM_DISLIKED:
-            continue  # skip bad region entirely
+        best_idx = int(np.argmax(sims))
+        best_sim = sims[best_idx]
+        profile = active_profiles[best_idx]
 
-        max_sim_liked = 0.0
-        for lv, lv_norm in zip(np_liked_vectors, weighted_liked_norms):
-            sim = get_similarity(song_vec, lv, song_norm, lv_norm)
-            if sim > max_sim_liked:
-                max_sim_liked = sim
+        # ---- exploration band score ----
+        exploration_score = -abs(best_sim - TARGET_SIM) / SIM_SPREAD
 
-        # --- scoring ---
-        score = 0.0
+        score = exploration_score
 
-        if max_sim_liked > MIN_SIM_LIKED:
-            score += max_sim_liked
+        # ---- confidence weighting (important!) ----
+        score *= (1.0 + PROFILE_BALANCE * profile.confidence)
 
-        score += genre_weights.get(row.track_genre, 0.0)
-        score -= max_sim_disliked * 0.5
+        # ---- genre alignment bonus ----
+        if row.track_genre in profile.genres:
+            score += 0.05
 
-        scored_candidates.append((score, row))
+        scored.append((score, row, profile.cluster_name))
 
-    # --- Phase 3: sort by score ---
-    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+    if not scored:
+        return pd.DataFrame()
 
-    # --- Phase 4: diversity-aware selection ---
-    selected_rows = []
+    # ---------- Phase 5: rank ----------
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # ---------- Phase 6: balanced selection ----------
+    selected = []
     used_artists = set()
-    used_genres = set()
+    used_profiles = {}
 
-    for score, row in scored_candidates:
+    for score, row, cluster in scored:
         if row.artists in used_artists:
             continue
-        if row.track_genre in used_genres:
+
+        used_profiles.setdefault(cluster, 0)
+
+        # avoid one profile dominating
+        if used_profiles[cluster] > n_songs * 0.4:
             continue
 
-        selected_rows.append(row)
+        selected.append(row)
         used_artists.add(row.artists)
-        used_genres.add(row.track_genre)
+        used_profiles[cluster] += 1
 
-        if len(selected_rows) == n_songs:
+        if len(selected) == n_songs:
             break
 
-    return pd.DataFrame(selected_rows)
+    return pd.DataFrame(selected).reset_index(drop=True)
