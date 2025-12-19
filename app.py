@@ -19,6 +19,8 @@ COLD_START_BATCH_MUL = 2 # multiplier for cold start batch size, 1 = batch_size,
 
 BATCH_SIZE = min(BATCH_SIZE, 50) # caps batch size at 50
 COLD_START_BATCH_MUL = min(BATCH_SIZE*COLD_START_BATCH_MUL, 50)/BATCH_SIZE # caps cold start batch size at 50 
+SIMULATED_USER_SEED = 262
+
 
 class App:
     class Recommender(enum.Enum):
@@ -34,6 +36,7 @@ class App:
 
         self.user_profile = UserProfile.load()
         self.token_manager = SpotifyTokenManager()
+        self.is_running = False
 
         self.train_data = None
         self.linear_model = None
@@ -134,7 +137,7 @@ class App:
     # Main loop
     # -------------------------------------------------
     def run(self):
-
+        self.is_running = True
         print("\nMusic Recommendation App Started\n")
 
         while True:
@@ -178,7 +181,7 @@ class App:
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
-                    n_songs=BATCH_SIZE + 4,  # LINEAR MODEL ONLY SUGGESTS 4 LESS THAN BATCH_SIZE
+                    n_songs=BATCH_SIZE + 4,  # LINEAR MODEL ALWAYS SUGGESTS 4 LESS THAN BATCH_SIZE
                 )
             
             elif mode == self.Recommender.BOOST_MODEL:
@@ -204,7 +207,7 @@ class App:
             spotify_token = self.token_manager.get_token()
             recommended_tracks = self.get_recommendations_with_urls_img(recommended_tracks, spotify_token)
             
-            simulate_user_feedback(recommended_tracks, self.user_profile, 13)
+            simulate_user_feedback(recommended_tracks, self.user_profile, SIMULATED_USER_SEED)
 
             #self.collect_user_feedback(recommended_tracks)
 
@@ -213,4 +216,6 @@ class App:
             total_seen = len(self.user_profile.seen_song_ids)
             print(f"\ntotal seen tracks: {total_seen}\n")
             if  total_seen>= N_TOTAL_TRACKS:
+                self.is_running = False
                 break
+
