@@ -12,15 +12,18 @@ import pyperclip
 import enum
 import time
 
+# simulate user
+SIMULATE_USER = True
 
+# Configs
 DATA_PATH = "data/processed/tracks_processed_normalized.csv"
 BATCH_SIZE = 10  # must be <= 50 for Spotify batch endpoints
 COLD_START_BATCH_MUL = 2 # multiplier for cold start batch size, 1 = batch_size, 2 = 2*batch_size
-
-BATCH_SIZE = min(BATCH_SIZE, 50) # caps batch size at 50
-COLD_START_BATCH_MUL = min(BATCH_SIZE*COLD_START_BATCH_MUL, 50)/BATCH_SIZE # caps cold start batch size at 50 
 SIMULATED_USER_SEED = 262
 
+# CAPS
+COLD_START_BATCH_MUL = min(BATCH_SIZE*COLD_START_BATCH_MUL, 50)/BATCH_SIZE # caps cold start batch size at 50 
+BATCH_SIZE = min(BATCH_SIZE, 50) # caps batch size at 50
 
 class App:
     class Recommender(enum.Enum):
@@ -31,22 +34,26 @@ class App:
         BOOST_MODEL = 4
 
     def __init__(self):
+        # App variables
         self.df = pd.read_csv(DATA_PATH)
         self.df["track_id"] = self.df["track_id"].astype(str).str.strip()
-
         self.user_profile = UserProfile.load()
+
+        # App state
         self.token_manager = SpotifyTokenManager()
         self.is_running = False
 
+        # Train model data
         self.train_data = None
         self.linear_model = None
-        self.last_linear_model_train_seen = 0
         self.boost_model = None
+        self.last_linear_model_train_seen = 0
         self.last_boost_model_train_seen = 0
 
     # -------------------------------------------------
     # Helpers
     # -------------------------------------------------
+
     def get_recommendations_with_urls_img(
         self,
         recommendations: pd.DataFrame,
@@ -81,7 +88,11 @@ class App:
     # -------------------------------------------------
     # Recommender choice
     # -------------------------------------------------
+
     def choose_recommender(self):
+        '''
+        Choses recommender based on confidence and seen songs amount
+        '''
         c = self.user_profile.confidence
         n = len(self.user_profile.seen_song_ids)
         print(f"total confidence {c}")
@@ -99,7 +110,16 @@ class App:
     # -------------------------------------------------
     # Feedback loop
     # -------------------------------------------------
+
     def collect_user_feedback(self, recommendations: pd.DataFrame):
+
+        '''
+        Asks the user if he likes or not the recommended songs
+        
+        :param self: Description
+        :param recommendations: Description
+        :type recommendations: pd.DataFrame
+        '''
         i = 0
         n = len(recommendations)
 
@@ -136,7 +156,11 @@ class App:
     # -------------------------------------------------
     # Main loop
     # -------------------------------------------------
+
     def run(self):
+        '''
+        Runs the application
+        '''
         self.is_running = True
         print("\nMusic Recommendation App Started\n")
 
@@ -200,7 +224,6 @@ class App:
                     n_songs=BATCH_SIZE
                 )
 
-
             elapsed = time.perf_counter() - start
             print(f"[INFO] Generated in {elapsed:.3f}s")
 
@@ -209,10 +232,12 @@ class App:
             
             simulate_user_feedback(recommended_tracks, self.user_profile, SIMULATED_USER_SEED)
 
-            #self.collect_user_feedback(recommended_tracks)
+            if not SIMULATE_USER:
+                self.collect_user_feedback(recommended_tracks)
 
-            #if input("\nContinue? (Y/N): ").upper() != "Y":
-            #    break
+                if input("\nContinue? (Y/N): ").upper() != "Y":
+                    break
+            
             total_seen = len(self.user_profile.seen_song_ids)
             print(f"\ntotal seen tracks: {total_seen}\n")
             if  total_seen>= N_TOTAL_TRACKS:
