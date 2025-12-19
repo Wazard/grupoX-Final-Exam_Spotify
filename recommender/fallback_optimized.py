@@ -26,8 +26,8 @@ def generate_fallback_songs(
     - 20% from weakest / inactive profiles
     """
 
-    taste_profiles = np.array(user_profile.taste_profiles)
-    seen_track_ids = np.array(user_profile.seen_song_ids)
+    taste_profiles = user_profile.taste_profiles
+    seen_track_ids = user_profile.seen_song_ids
     # ---------- Phase 1: candidate pool ----------
     candidates = df.dropna()
     candidates = candidates[~candidates["track_id"].isin(seen_track_ids)]
@@ -41,13 +41,10 @@ def generate_fallback_songs(
         candidates["vector"] = list(vectorize_songs_batch(candidates))
 
     # ---------- Phase 3: prepare profiles ----------
-    active_profiles = np.array([
+    active_profiles = [
         p for p in taste_profiles
         if p.confidence > 0 and np.linalg.norm(p.vector) > 0
-    ])
-
-    if not active_profiles:
-        return pd.DataFrame()
+    ]
 
     active_profile_vectors = [
         p.vector * WEIGHTS for p in active_profiles
@@ -56,7 +53,7 @@ def generate_fallback_songs(
         np.linalg.norm(v) for v in active_profile_vectors
     ]
 
-    inactive_profiles = taste_profiles - active_profiles
+    inactive_profiles = [tp for tp in taste_profiles if tp not in active_profiles]
 
     inactive_profile_vectors = [
         p.vector * WEIGHTS for p in inactive_profiles
@@ -64,7 +61,7 @@ def generate_fallback_songs(
     inactive_profile_norms = [
         np.linalg.norm(v) for v in inactive_profile_vectors
     ]
-    active_scored = []
+    scored = []
 
     # ---------- Phase 4: scoring ----------
     for row in candidates.itertuples(index=False):
@@ -110,18 +107,17 @@ def generate_fallback_songs(
         if row.track_genre in inactive_profile.genres:
             inactive_score += GENRE_WEIGHT
 
-        active_scored.append((active_score, row, active_profile.cluster_name))
-
+        scored.append((active_score, inactive_score, row, active_profile.cluster_name))
+    
     # ---------- Phase 5: rank ----------
-    active_scored.sort(key=lambda x: x[0], reverse=True)
-    inactive_score.sort(key = lambda x: x[0], reverse=True)
+    scored.sort(key=lambda x: x[0], reverse=True)
 
     # ---------- Phase 6: balanced selection ----------
     selected = []
     used_artists = set()
     used_profiles = {}
 
-    for active_score, row, cluster in active_scored:
+    for _, _, row, cluster in scored:
         if row.artists in used_artists:
             continue
 
@@ -135,12 +131,14 @@ def generate_fallback_songs(
         used_artists.add(row.artists)
         used_profiles[cluster] += 1
 
-        if len(selected) == n_songs * .9:
+        if len(selected) >= n_songs * .9:
             break
     
     used_artists = set()
+
+    scored.sort(key=lambda x: x[1], reverse=True)
     
-    for _, row, cluster in inactive_score:
+    for _, _, row, cluster in scored:
         if row.artists in used_artists:
             continue
 
@@ -154,7 +152,7 @@ def generate_fallback_songs(
         used_artists.add(row.artists)
         used_profiles[cluster] += 1
 
-        if len(selected) == n_songs * .1:
+        if len(selected) >= n_songs * .1:
             break
     
     return pd.DataFrame(selected).reset_index(drop=True)

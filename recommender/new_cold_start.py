@@ -2,7 +2,7 @@ from evaluation.metrics import GENRE_CLUSTERS
 import pandas as pd
 import numpy as np
 
-COLD_START_CLUSTERS = 3
+COLD_START_CLUSTERS = 2
 POPULARITY_THRESHOLD = 30
 
 

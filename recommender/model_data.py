@@ -84,15 +84,16 @@ def generate_model_rank(
     Multi-modal model recommender.
 
     Strategy:
-    - One model per active taste profile
-    - Split recommendations evenly
-    - Add small exploration from weakest profiles
+    - Even split across active taste profiles
+    - Small exploration from weakest profiles
     """
 
     if df.empty or not user_profile.has_profile():
+        print("missing df or userprofile")
         return pd.DataFrame()
-    
+
     df = df.copy()
+
     # Remove banned genres
     pattern = "|".join(BANNED_GENRES)
     df = df[~df["track_genre"].str.contains(pattern, case=False, na=False)]
@@ -101,77 +102,88 @@ def generate_model_rank(
     df = df[~df["track_id"].isin(seen_track_ids)]
 
     if df.empty:
+        print("all tracks seen")
         return pd.DataFrame()
 
     # -----------------------------------------
-    # ACTIVE & WEAK PROFILES
+    # PROFILE SPLITS
     # -----------------------------------------
     active_profiles = user_profile.get_active_profiles(min_confidence=1.0)
 
     if not active_profiles:
+        print("no active profiles")
         return pd.DataFrame()
 
-    inactive_profiles = sorted(
+    weak_profiles = sorted(
         user_profile.taste_profiles,
         key=lambda p: p.confidence
     )
 
-    per_profile = max(1, n_songs // len(active_profiles))
+    exploitation_budget = n_songs - EXPLORATION_EXTRA
+
+    per_profile = max(1, exploitation_budget // len(active_profiles))
+
     results = []
 
     # -----------------------------------------
-    # EXPLOITATION: ACTIVE PROFILES
+    # EXPLOITATION (ACTIVE PROFILES)
     # -----------------------------------------
     for profile in active_profiles:
+        model = getattr(profile, "model", None)
+        if model is None:
+            continue
+
         candidates = df[df["track_genre"].isin(profile.genres)]
         if candidates.empty:
             continue
 
         X = candidates[SIMILARITY_FEATURES].values.astype(np.float32)
-
-        model = getattr(profile, "model", None)
-        if model is None:
-            continue
-
         probs = model.predict_proba(X)[:, 1]
-        candidates = candidates.assign(score=probs)
-        candidates = candidates.sort_values("score", ascending=False)
 
-        results.append(candidates.head(per_profile))
+        ranked = (
+            candidates
+            .assign(score=probs)
+            .sort_values("score", ascending=False)
+            .head(per_profile)
+        )
+
+        results.append(ranked)
 
     # -----------------------------------------
-    # EXPLORATION: WEAK PROFILES
+    # EXPLORATION (WEAK PROFILES)
     # -----------------------------------------
-    extra = []
+    exploration = []
+    remaining = EXPLORATION_EXTRA
 
-    for profile in inactive_profiles:
-        if profile.confidence > 0:
+    for profile in weak_profiles:
+        if profile in active_profiles:
             continue
+        if remaining <= 0:
+            break
 
         candidates = df[df["track_genre"].isin(profile.genres)]
         if candidates.empty:
             continue
 
-        extra.append(
-            candidates.sample(
-                min(EXPLORATION_EXTRA, len(candidates)),
-                random_state=42
-            )
+        take = min(remaining, len(candidates))
+        exploration.append(
+            candidates.sample(take, random_state=42)
         )
-
-        if sum(len(x) for x in extra) >= EXPLORATION_EXTRA:
-            break
+        remaining -= take
 
     # -----------------------------------------
     # FINAL MERGE
     # -----------------------------------------
-    final = pd.concat(results + extra, axis=0)
+    final = pd.concat(results + exploration, axis=0)
 
-    final = final.drop_duplicates("track_id")
-    final = final.head(n_songs)
+    final = (
+        final
+        .drop_duplicates("track_id")
+        .head(n_songs)
+        .reset_index(drop=True)
+    )
 
-    return final.reset_index(drop=True)
-
+    return final
 
 # -------------------------------------------------
 # TRAIN / UPDATE ALL PROFILE MODELS
@@ -190,6 +202,8 @@ def train_models_if_needed(
     if seen_now - last_train_seen < N_TRAIN_AMOUNT:
         return last_train_seen
 
+    print("training new model...")
+
     for profile in user_profile.taste_profiles:
         X, y = build_training_data_for_profile(
             df,
@@ -201,6 +215,14 @@ def train_models_if_needed(
         if X is None:
             continue
 
+        unique_classes = np.unique(y)
+        if len(unique_classes) < 2:
+            # Not enough info to train a classifier
+            profile.model = None
+            profile.model_type = "similarity"
+            continue
+
         profile.model = train_profile_model(X, y)
+        profile.model_type = "classifier"
 
     return seen_now

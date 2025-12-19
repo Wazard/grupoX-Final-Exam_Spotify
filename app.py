@@ -76,12 +76,13 @@ class App:
     def choose_recommender(self):
         c = self.user_profile.confidence
         n = len(self.user_profile.seen_song_ids)
+        print(f"total confidence {c}")
 
         if c < 2:
             return self.Recommender.COLD_START
         if c < 4:
             return self.Recommender.FALLBACK
-        if c < 9.5 and n < 150:
+        if c < 8 or n < 150:
             return self.Recommender.RANKING
         
         return self.Recommender.MODEL
@@ -101,8 +102,7 @@ class App:
                 pyperclip.copy(song["track_url"])
 
             answer = input(
-                f"({i+1}/{n}) Do you like '{song['track_name']}' by {song['artists']}? "
-                "[Y/N]: "
+                f"({i+1}/{n}) Do you like: {song['track_name']}, by {song['artists']}, of genre: {song['track_genre']}? [Y/N]: "
             ).strip().upper()
 
             vector, track_id = vectorize_song(song, include_id=True)
@@ -125,33 +125,6 @@ class App:
         self.user_profile.save()
 
     # -------------------------------------------------
-    # Deduplication
-    # -------------------------------------------------
-    def _dedup_batch(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Remove duplicate songs inside a single recommendation batch.
-        Deduplication is semantic, not by track_id.
-
-        Keeps the first occurrence (already sorted by score upstream).
-        """
-        if df.empty:
-            return df
-
-        dedup_cols = ["track_name", "artists", "duration_s"]
-
-        # Some datasets may lack duration_s – fallback safely
-        existing_cols = [c for c in dedup_cols if c in df.columns]
-
-        if not existing_cols:
-            return df.drop_duplicates(subset=["track_id"])
-
-        return (
-            df
-            .drop_duplicates(subset=existing_cols, keep="first")
-            .reset_index(drop=True)
-        )
-
-    # -------------------------------------------------
     # Main loop
     # -------------------------------------------------
     def run(self):
@@ -165,11 +138,11 @@ class App:
 
             if mode == self.Recommender.COLD_START:
                 print("\n--- Cold Start ---")
-                recs = generate_cold_start_songs(self.df, BATCH_SIZE * COLD_START_BATCH_MUL)
+                recommended_tracks = generate_cold_start_songs(self.df, BATCH_SIZE * COLD_START_BATCH_MUL)
 
             elif mode == self.Recommender.FALLBACK:
                 print("\n--- Fallback ---")
-                recs = generate_fallback_songs(
+                recommended_tracks = generate_fallback_songs(
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
@@ -178,7 +151,7 @@ class App:
 
             elif mode == self.Recommender.RANKING:
                 print("\n--- Ranking ---")
-                recs = generate_ranking(
+                recommended_tracks = generate_ranking(
                     df=self.df,
                     user_profile=self.user_profile,
                     n_songs=BATCH_SIZE,
@@ -195,22 +168,20 @@ class App:
                 )
 
                 # Generate recommendations using ALL taste profiles
-                recs = generate_model_rank(
+                recommended_tracks = generate_model_rank(
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
                     n_songs=BATCH_SIZE,
                 )
 
-
             elapsed = time.perf_counter() - start
             print(f"[INFO] Generated in {elapsed:.3f}s")
 
-            recs = self._dedup_batch(recs)
             spotify_token = self.token_manager.get_token()
-            recs = self.get_recommendations_with_urls_img(recs, spotify_token)
+            recommended_tracks = self.get_recommendations_with_urls_img(recommended_tracks, spotify_token)
 
-            self.collect_user_feedback(recs)
+            self.collect_user_feedback(recommended_tracks)
 
             if input("\nContinue? (Y/N): ").upper() != "Y":
                 break

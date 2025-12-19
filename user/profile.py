@@ -4,8 +4,8 @@ import os
 from collections import Counter
 from dataclasses import dataclass
 from typing import List, Dict, Optional
-
-from evaluation.metrics import GENRE_CLUSTERS
+from features.song_representation import vectorize_song
+from evaluation.metrics import GENRE_CLUSTERS, SIMILARITY_FEATURES
 
 # ============================================================
 # Configuration
@@ -61,7 +61,7 @@ class UserProfile:
                 TasteProfile(
                     cluster_name=cluster_name,
                     genres=set(genres),
-                    vector=np.zeros(len(genres), dtype=np.float32),  # placeholder
+                    vector=np.zeros(len(SIMILARITY_FEATURES), dtype=np.float32),  # placeholder
                     confidence=0.0,
                     liked_count=0,
                     genre_counts=Counter()
