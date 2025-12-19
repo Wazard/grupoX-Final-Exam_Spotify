@@ -1,6 +1,7 @@
+from recommender.helper.functions import build_training_data_for_profile
 from evaluation.metrics import SIMILARITY_FEATURES, BANNED_GENRES
 from sklearn.linear_model import LogisticRegression
-from user.profile import TasteProfile, UserProfile
+from user.profile import UserProfile
 import pandas as pd
 import numpy as np
 
@@ -11,43 +12,6 @@ import numpy as np
 N_TRAIN_AMOUNT = 50
 DISLIKE_WEIGHT = 0.35
 EXPLORATION_EXTRA = 2   # extra songs from low-confidence profiles
-
-
-# -------------------------------------------------
-# TRAINING DATA (PER PROFILE)
-# -------------------------------------------------
-def build_training_data_for_profile(
-    df: pd.DataFrame,
-    profile: TasteProfile,
-    liked_ids: list[str],
-    disliked_ids: list[str],
-):
-    """
-    Build training data ONLY from genres belonging
-    to the given taste profile.
-    """
-
-    liked_ids = set(map(str, liked_ids))
-    disliked_ids = set(map(str, disliked_ids))
-
-    mask = df["track_genre"].isin(profile.genres)
-    subset = df[mask]
-
-    liked = subset[subset["track_id"].isin(liked_ids)].copy()
-    disliked = subset[subset["track_id"].isin(disliked_ids)].copy()
-
-    if liked.empty and disliked.empty:
-        return None, None
-
-    liked["label"] = 1
-    disliked["label"] = 0
-
-    data = pd.concat([liked, disliked], axis=0)
-
-    X = data[SIMILARITY_FEATURES].values.astype(np.float32)
-    y = data["label"].values.astype(np.int32)
-
-    return X, y
 
 
 # -------------------------------------------------
@@ -74,22 +38,13 @@ def train_profile_model(X: np.ndarray, y: np.ndarray):
 # -------------------------------------------------
 # MODEL-BASED RANKING (MULTI-PROFILE)
 # -------------------------------------------------
-def generate_model_rank(
+def generate_linear_model_rank(
     df: pd.DataFrame,
     user_profile: UserProfile,
     seen_track_ids: set[str],
     n_songs: int,
 ):
-    """
-    Multi-modal model recommender.
-
-    Strategy:
-    - Even split across active taste profiles
-    - Small exploration from weakest profiles
-    """
-
     if df.empty or not user_profile.has_profile():
-        print("missing df or userprofile")
         return pd.DataFrame()
 
     df = df.copy()
@@ -98,20 +53,16 @@ def generate_model_rank(
     pattern = "|".join(BANNED_GENRES)
     df = df[~df["track_genre"].str.contains(pattern, case=False, na=False)]
 
-    # Remove seen tracks
+    # Remove seen tracks (FIRST pass)
     df = df[~df["track_id"].isin(seen_track_ids)]
-
     if df.empty:
-        print("all tracks seen")
         return pd.DataFrame()
 
     # -----------------------------------------
     # PROFILE SPLITS
     # -----------------------------------------
     active_profiles = user_profile.get_active_profiles(min_confidence=1.0)
-
     if not active_profiles:
-        print("no active profiles")
         return pd.DataFrame()
 
     weak_profiles = sorted(
@@ -120,7 +71,6 @@ def generate_model_rank(
     )
 
     exploitation_budget = n_songs - EXPLORATION_EXTRA
-
     per_profile = max(1, exploitation_budget // len(active_profiles))
 
     results = []
@@ -134,7 +84,7 @@ def generate_model_rank(
             continue
 
         candidates = df[df["track_genre"].isin(profile.genres)]
-        if candidates.empty:
+        if len(candidates) < 5:
             continue
 
         X = candidates[SIMILARITY_FEATURES].values.astype(np.float32)
@@ -149,36 +99,38 @@ def generate_model_rank(
 
         results.append(ranked)
 
+    exploited = pd.concat(results, axis=0) if results else pd.DataFrame()
+
     # -----------------------------------------
     # EXPLORATION (WEAK PROFILES)
     # -----------------------------------------
-    exploration = []
-    remaining = EXPLORATION_EXTRA
+    remaining = n_songs - len(exploited)
+    exploration_budget = min(EXPLORATION_EXTRA, remaining)
 
+    exploration = []
     for profile in weak_profiles:
         if profile in active_profiles:
             continue
-        if remaining <= 0:
+        if exploration_budget <= 0:
             break
 
         candidates = df[df["track_genre"].isin(profile.genres)]
         if candidates.empty:
             continue
 
-        take = min(remaining, len(candidates))
-        exploration.append(
-            candidates.sample(take, random_state=42)
-        )
-        remaining -= take
+        take = min(exploration_budget, len(candidates))
+        exploration.append(candidates.sample(take))
+        exploration_budget -= take
 
     # -----------------------------------------
-    # FINAL MERGE
+    # FINAL MERGE (SECOND SEEN FILTER IS CRUCIAL)
     # -----------------------------------------
-    final = pd.concat(results + exploration, axis=0)
+    final = pd.concat([exploited] + exploration, axis=0)
 
     final = (
         final
         .drop_duplicates("track_id")
+        .loc[~final["track_id"].isin(seen_track_ids)]
         .head(n_songs)
         .reset_index(drop=True)
     )
@@ -188,7 +140,7 @@ def generate_model_rank(
 # -------------------------------------------------
 # TRAIN / UPDATE ALL PROFILE MODELS
 # -------------------------------------------------
-def train_models_if_needed(
+def train_linear_models_if_needed(
     df: pd.DataFrame,
     user_profile: UserProfile,
     last_train_seen: int,

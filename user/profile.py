@@ -1,11 +1,11 @@
+from evaluation.metrics import GENRE_CLUSTERS, SIMILARITY_FEATURES
+from typing import List, Optional
+from dataclasses import dataclass, field
+from collections import Counter
+import lightgbm as lgb
 import numpy as np
 import json
 import os
-from collections import Counter
-from dataclasses import dataclass
-from typing import List, Dict, Optional
-from features.song_representation import vectorize_song
-from evaluation.metrics import GENRE_CLUSTERS, SIMILARITY_FEATURES
 
 # ============================================================
 # Configuration
@@ -16,19 +16,26 @@ SIM_THRESHOLD_ASSIGN = 0.6
 TIME_FACTOR = 0.08
 DISLIKE_PENALTY = 0.15
 
-
 # ============================================================
 # Taste Profile (one genre cluster)
 # ============================================================
 @dataclass
 class TasteProfile:
+    # -------- required (no defaults) --------
     cluster_name: str
     genres: set[str]
-
     vector: np.ndarray
-    confidence: float
-    liked_count: int
-    genre_counts: Counter
+
+    # -------- state (defaults) --------
+    confidence: float = 0.0
+    liked_count: int = 0
+    disliked_count: int = 0
+    genre_counts: Counter = field(default_factory=Counter)
+
+    # -------- model persistence --------
+    model: Optional[lgb.Booster] = None
+    best_logloss: Optional[float] = None
+    best_auc: Optional[float] = None
 
     def normalize(self):
         norm = np.linalg.norm(self.vector)
@@ -64,6 +71,7 @@ class UserProfile:
                     vector=np.zeros(len(SIMILARITY_FEATURES), dtype=np.float32),  # placeholder
                     confidence=0.0,
                     liked_count=0,
+                    disliked_count=0,
                     genre_counts=Counter()
                 )
             )
@@ -120,6 +128,7 @@ class UserProfile:
             return
 
         profile.confidence *= (1.0 - DISLIKE_PENALTY)
+        profile.disliked_count += 1
 
     # --------------------------------------------------
     # Internal helpers
@@ -154,6 +163,7 @@ class UserProfile:
                     "vector": p.vector.tolist(),
                     "confidence": p.confidence,
                     "liked_count": p.liked_count,
+                    "disliked_count": p.disliked_count,
                     "genre_counts": dict(p.genre_counts),
                 }
                 for p in self.taste_profiles
@@ -189,6 +199,7 @@ class UserProfile:
             p.vector = np.array(saved["vector"], dtype=np.float32)
             p.confidence = float(saved["confidence"])
             p.liked_count = int(saved["liked_count"])
+            p.disliked_count = int(saved["disliked_count"])
             p.genre_counts = Counter(saved["genre_counts"])
 
         return profile

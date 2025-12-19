@@ -1,8 +1,8 @@
-import numpy as np
-import pandas as pd
 from features.song_representation import vectorize_songs_batch
 from evaluation.metrics import get_similarity, WEIGHTS
 from user.profile import UserProfile
+import pandas as pd
+import numpy as np
 
 N_SONGS = 10
 

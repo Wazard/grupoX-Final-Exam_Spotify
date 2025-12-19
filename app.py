@@ -1,9 +1,11 @@
 from features.spotify_api import SpotifyTokenManager, get_spotify_links_and_images
-from recommender.model_data import generate_model_rank, train_models_if_needed
+from recommender.model_data import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.light_gbm_new import generate_lgbm_rank, train_lgbms_if_needed
+from user.user_simulator import simulate_user_feedback, N_TOTAL_TRACKS
 from recommender.fallback_optimized import generate_fallback_songs
 from recommender.new_cold_start import generate_cold_start_songs
-from recommender.ranking import generate_ranking
 from features.song_representation import vectorize_song
+from recommender.ranking import generate_ranking
 from user.profile import UserProfile
 import pandas as pd
 import pyperclip
@@ -23,7 +25,8 @@ class App:
         COLD_START = 0
         FALLBACK = 1
         RANKING = 2
-        MODEL = 3
+        LINEAR_MODEL = 3
+        BOOST_MODEL = 4
 
     def __init__(self):
         self.df = pd.read_csv(DATA_PATH)
@@ -32,9 +35,11 @@ class App:
         self.user_profile = UserProfile.load()
         self.token_manager = SpotifyTokenManager()
 
-        self.model = None
         self.train_data = None
-        self.last_model_train_seen = 0
+        self.linear_model = None
+        self.last_linear_model_train_seen = 0
+        self.boost_model = None
+        self.last_boost_model_train_seen = 0
 
     # -------------------------------------------------
     # Helpers
@@ -82,11 +87,12 @@ class App:
             return self.Recommender.COLD_START
         if c < 4:
             return self.Recommender.FALLBACK
-        if c < 8 or n < 150:
+        if c < 8 or n < 200:
             return self.Recommender.RANKING
+        if c < 12 or n < 2000:
+            return self.Recommender.LINEAR_MODEL
         
-        return self.Recommender.MODEL
-
+        return self.Recommender.BOOST_MODEL
     # -------------------------------------------------
     # Feedback loop
     # -------------------------------------------------
@@ -157,31 +163,54 @@ class App:
                     n_songs=BATCH_SIZE,
                 )
 
-            else:
-                print("\n--- Model ---")
+            elif mode == self.Recommender.LINEAR_MODEL:
+                print("\n--- Linear Model ---")
 
                 # Train / refresh per-taste models only when needed
-                self.last_model_train_seen = train_models_if_needed(
+                self.last_linear_model_train_seen = train_linear_models_if_needed(
                     df=self.df,
                     user_profile=self.user_profile,
-                    last_train_seen=self.last_model_train_seen,
+                    last_train_seen=self.last_linear_model_train_seen,
                 )
 
                 # Generate recommendations using ALL taste profiles
-                recommended_tracks = generate_model_rank(
+                recommended_tracks = generate_linear_model_rank(
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
-                    n_songs=BATCH_SIZE,
+                    n_songs=BATCH_SIZE + 4,  # LINEAR MODEL ONLY SUGGESTS 4 LESS THAN BATCH_SIZE
                 )
+            
+            elif mode == self.Recommender.BOOST_MODEL:
+                print("\n--- Boost Model ---")
+            
+                self.last_boost_model_train_seen = train_lgbms_if_needed(
+                    df = self.df,
+                    user_profile= self.user_profile,
+                    last_train_seen=self.last_boost_model_train_seen,
+                )
+
+                recommended_tracks = generate_lgbm_rank(
+                    df = self.df,
+                    user_profile=self.user_profile,
+                    seen_track_ids= self.user_profile.seen_song_ids,
+                    n_songs=BATCH_SIZE
+                )
+
 
             elapsed = time.perf_counter() - start
             print(f"[INFO] Generated in {elapsed:.3f}s")
 
             spotify_token = self.token_manager.get_token()
             recommended_tracks = self.get_recommendations_with_urls_img(recommended_tracks, spotify_token)
+            
+            simulate_user_feedback(recommended_tracks, self.user_profile, 13)
 
-            self.collect_user_feedback(recommended_tracks)
+            #self.collect_user_feedback(recommended_tracks)
 
-            if input("\nContinue? (Y/N): ").upper() != "Y":
+            #if input("\nContinue? (Y/N): ").upper() != "Y":
+            #    break
+            total_seen = len(self.user_profile.seen_song_ids)
+            print(f"\ntotal seen tracks: {total_seen}\n")
+            if  total_seen>= N_TOTAL_TRACKS:
                 break
