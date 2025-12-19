@@ -7,7 +7,7 @@ MODALITÀ:
 - Imposta AUTO = False -> modalità manuale (chiede 1/0/q)
 
 Uso:
-  python main.py --csv tracks_with_clusters.csv
+  python Tentativo\main.py --csv tracks_with_clusters.csv
 
 Note:
 - non ripropone mai una canzone già vista
@@ -27,7 +27,9 @@ from cold_start_clustered import build_cold_start, ask_labels
 from hierarchical_ts import FullHierarchicalTS
 from performance import Tracker
 
-from sim_user import UserSimulator, UserSimConfig
+#from sim_user import UserSimulator, UserSimConfig
+from sim_user_genre_only import GenreOnlyUserSimulator, GenreOnlyUserConfig
+
 
 # ==========================
 # SWITCH CHIARO AUTO/MANUALE
@@ -60,10 +62,23 @@ def main() -> None:
 
     # --- Simulator (opzionale) ---
     sim = None
+    sim_user=False #Dipende dall'utente che voglio usare
     if AUTO:
         # utente coerente: preferenze su feature + bias per track_genre (NO cluster bias)
-        sim_cfg = UserSimConfig(seed=args.seed, noise=0.15)
-        sim = UserSimulator(df=df, feature_cols=feature_cols, config=sim_cfg)
+        if sim_user:
+            sim_cfg = UserSimConfig(
+                                            seed=args.seed,
+                                            noise=0.15,
+                                            enable_shock=True,
+                                            shock_at=args.max_steps // 4,   # qui decidi dopo quante iterazioni
+                                        )
+
+            sim = UserSimulator(df=df, feature_cols=feature_cols, config=sim_cfg)
+        else:
+                sim_cfg = GenreOnlyUserConfig(seed=args.seed, noise=0.0)  # noise 0 = regola dura
+                sim = GenreOnlyUserSimulator(config=sim_cfg)
+
+
 
     # --- Cold start ---
     cold_items = build_cold_start(df, n_per_cluster=2)
@@ -107,7 +122,9 @@ def main() -> None:
 
         if AUTO:
             assert sim is not None
+            sim.set_turn(step)
             reward, p_true = sim.rate(row)
+
             print(f"(AUTO) feedback: {reward} | p_like_true={p_true:.3f}")
         else:
             while True:

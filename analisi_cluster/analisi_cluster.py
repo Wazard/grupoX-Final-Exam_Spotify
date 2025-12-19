@@ -424,6 +424,7 @@ if __name__ == "__main__":
     #   "train"    -> allena KMeans (su PCA-space) e salva tracks_with_clusters.csv (con feature originali + cluster)
     #   "analyze"  -> profilo + descrizione (quantili) + metriche qualità (richiede file cluster salvato)
     #   "viz"      -> grafici PCA + t-SNE + (opzionale) UMAP (richiede file cluster salvato)
+    #   "cluster_vs_genre" -> 
     MODE ="cluster_vs_genre"
 
     # per MODE="train": k scelto
