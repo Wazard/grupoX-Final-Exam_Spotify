@@ -1,14 +1,16 @@
-from features.spotify_api import SpotifyTokenManager, get_spotify_links_and_images
-from recommender.model_data import generate_linear_model_rank, train_linear_models_if_needed
-from recommender.light_gbm_new import generate_lgbm_rank, train_lgbms_if_needed
-from user.user_simulator import simulate_user_feedback, N_TOTAL_TRACKS
+from features.spotify_api           import get_spotify_links_and_images, SpotifyTokenManager
+from recommender.model_data         import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.light_gbm_new      import generate_lgbm_rank, train_lgbms_if_needed
+from user.user_simulator            import simulate_user_feedback, N_TOTAL_TRACKS
 from recommender.fallback_optimized import generate_fallback_songs
-from recommender.new_cold_start import generate_cold_start_songs
-from features.song_representation import vectorize_song
-from recommender.ranking import generate_ranking
-from user.profile import UserProfile
-import pandas as pd
-import pyperclip
+from recommender.new_cold_start     import generate_cold_start_songs
+from features.song_representation   import vectorize_song
+from recommender.ranking            import generate_ranking
+from user.profile                   import UserProfile
+
+import pandas       as pd
+import pyperclip    as clip
+
 import enum
 import time
 
@@ -17,13 +19,15 @@ SIMULATE_USER = True
 
 # Configs
 DATA_PATH = "data/processed/tracks_processed_normalized.csv"
-BATCH_SIZE = 10  # must be <= 50 for Spotify batch endpoints
-COLD_START_BATCH_MUL = 2 # multiplier for cold start batch size, 1 = batch_size, 2 = 2*batch_size
+BATCH_SIZE = 10             # must be <= 50 for Spotify batch endpoints
+COLD_START_BATCH_MUL = 2    # multiplier for cold start batch size, 1 = batch_size, 2 = 2*batch_size
 SIMULATED_USER_SEED = 262
 
 # CAPS
-COLD_START_BATCH_MUL = min(BATCH_SIZE*COLD_START_BATCH_MUL, 50)/BATCH_SIZE # caps cold start batch size at 50 
-BATCH_SIZE = min(BATCH_SIZE, 50) # caps batch size at 50
+COLD_START_BATCH_MUL = min(
+    BATCH_SIZE*COLD_START_BATCH_MUL, 50
+    )/BATCH_SIZE                            # caps cold start batch size at 50 
+BATCH_SIZE = min(BATCH_SIZE, 50)            # caps batch size at 50
 
 class App:
     class Recommender(enum.Enum):
@@ -128,7 +132,7 @@ class App:
             genre = song.get("track_genre")
 
             if song.get("track_url"):
-                pyperclip.copy(song["track_url"])
+                clip.copy(song["track_url"])
 
             answer = input(
                 f"({i+1}/{n}) Do you like: {song['track_name']}, by {song['artists']}, of genre: {song['track_genre']}? [Y/N]: "
