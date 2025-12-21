@@ -10,7 +10,7 @@ import json
 
 N_TOP_PROFILES = 5          # how many taste profiles to plot
 N_TOP_GENRES = 12           # how many genres in global radar
-MIN_CONFIDENCE = 0.5        # minimum confidence for genre aggregation
+MIN_CONFIDENCE = 1e-6        # minimum confidence for genre aggregation
 
 def plot_active_profile_vectors_from_json(
     profile_json_path: str,
@@ -36,7 +36,7 @@ def plot_active_profile_vectors_from_json(
             continue
 
         plot_profile_vector_radar(
-            profile_name=f"{p['cluster_name']} (conf={p['confidence']:.2f})",
+            profile_name=f"{p['taste_cluster_name']} (conf={p['confidence']:.2f})",
             vector=vector,
             feature_names=feature_names,
         )
@@ -146,8 +146,3 @@ def plot_global_genre_radar_from_json(
 ):
     genre_vector = build_global_genre_vector(profile_json_path)
     plot_global_genre_radar(genre_vector)
-
-
-# ==========================
-# END OF FILE
-# ==========================

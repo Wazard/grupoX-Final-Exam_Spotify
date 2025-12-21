@@ -209,7 +209,7 @@ class App:
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,
-                    n_songs=BATCH_SIZE + 4,  # LINEAR MODEL ALWAYS SUGGESTS 4 LESS THAN BATCH_SIZE
+                    n_songs=BATCH_SIZE,
                 )
             
             elif mode == self.Recommender.BOOST_MODEL:
