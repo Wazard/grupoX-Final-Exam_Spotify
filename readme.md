@@ -35,13 +35,19 @@ Each taste profile corresponds to a coherent musical cluster and contains:
 * A disliked songs counter
 * A genre distribution
 
-Taste profiles are never merged.
+Taste profiles are never merged together.
 
-Placeholder images:
+Profile plotting:
 
-```
-[ IMAGES PLACEHOLDER: User profile plotting ]
-```
+<p float='left'>
+  <img src="plots/Plotting_figure_1.png" width="49%">
+  <img src="plots/Plotting_figure_2.png" width="49%">
+  <img src="plots/Plotting_figure_3.png" width="49%">
+  <img src="plots/Plotting_figure_4.png" width="49%">
+  <img src="plots/Plotting_figure_5.png" width="49%">
+  <img src="plots/Plotting_figure_6.png" width="49%">
+</p>
+
 ---
 
 ## Genre Clustering
@@ -72,11 +78,9 @@ Characteristics:
 * Cluster diversity
 * No personalization assumptions
 
-Placeholder image:
+Cold start recommendations:
 
-```
-[ IMAGE PLACEHOLDER: Cold start recommendations ]
-```
+<img src="plots/Cold_start.png">
 
 ---
 
@@ -92,11 +96,9 @@ Characteristics:
 * Songs scoring
 * Encourages controlled exploration
 
-Placeholder image:
+Fallback recommendations:
 
-```
-[ IMAGE PLACEHOLDER: Exploration vs exploitation behavior ]
-```
+<img src="plots/fallback.png">
 
 ---
 
@@ -110,6 +112,10 @@ Characteristics:
 * Weighted audio features
 * Dislike-aware penalties
 * Stable and exploitative behavior
+
+Ranking algoriths:
+
+<img src="plots/ranking.png">
 
 ---
 
@@ -159,10 +165,11 @@ Each taste profile has its own model, trained only if it has enough positive and
 * Performance metrics (AUC, LogLoss) are logged per profile
 
 Placeholder image:
-
-```
-[ IMAGE PLACEHOLDER: Model performance logs ]
-```
+<p float='left'>
+  <img src="plots/booster_model_training.png" width='33%'>
+  <img src="plots/booster_model.png" width='33%'>
+  <img src="plots/linear_model.png" width='33%'>
+</p>
 
 ---
 
