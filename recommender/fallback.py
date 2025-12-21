@@ -5,7 +5,7 @@ from features.song_representation import vectorize_song
 from evaluation.metrics import get_similarity
 
 N_SONGS = 10
-POPULARITY_THRESHOLD = 75
+POPULARITY_THRESHOLD = 85
 
 MAX_SIM_DISLIKED = 0.85
 MIN_SIM_LIKED = 0.65

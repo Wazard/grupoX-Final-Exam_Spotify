@@ -159,7 +159,7 @@ class UserProfile:
             "disliked_song_ids": self.disliked_song_ids,
             "taste_profiles": [
                 {
-                    "cluster_name": p.cluster_name,
+                    "taste_cluster_name": p.cluster_name,
                     "vector": p.vector.tolist(),
                     "confidence": p.confidence,
                     "liked_count": p.liked_count,
@@ -187,7 +187,7 @@ class UserProfile:
         profile.disliked_song_ids = data.get("disliked_song_ids", [])
 
         saved_profiles = {
-            p["cluster_name"]: p
+            p["taste_cluster_name"]: p
             for p in data.get("taste_profiles", [])
         }
 
