@@ -37,6 +37,11 @@ Each taste profile corresponds to a coherent musical cluster and contains:
 
 Taste profiles are never merged.
 
+Placeholder images:
+
+```
+[ IMAGES PLACEHOLDER: User profile plotting ]
+```
 ---
 
 ## Genre Clustering
