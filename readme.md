@@ -113,7 +113,7 @@ Characteristics:
 * Dislike-aware penalties
 * Stable and exploitative behavior
 
-Ranking algoriths:
+Ranking algorithm:
 
 <img src="plots/ranking.png">
 
@@ -164,7 +164,6 @@ Each taste profile has its own model, trained only if it has enough positive and
 * Early stopping is used for LightGBM
 * Performance metrics (AUC, LogLoss) are logged per profile
 
-Placeholder image:
 <p float='left'>
   <img src="plots/booster_model_training.png" width='33%'>
   <img src="plots/booster_model.png" width='33%'>
