@@ -1,6 +1,7 @@
 .conda
 .vscode
 .env
+.vscode
 *.json
 *.txt
 *.pyc
