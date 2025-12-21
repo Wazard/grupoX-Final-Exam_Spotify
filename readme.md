@@ -1,63 +1,195 @@
-Single user
+# Multi-Modal Music Recommendation System
 
-No GUI
+This project is a content-based music recommendation system inspired by Spotify-style behavior.
+It models multiple independent musical tastes per user and progressively upgrades its recommendation strategy as more feedback is collected.
 
-Offline dataset only
+The system is designed to handle users with diverse, even contradictory tastes (for example metal, J-pop, and Latin music) without collapsing them into a single preference vector.
 
-Implicit feedback only (like / dislike)
+---
 
-Goal: suggest relevant and diverse songs
+## Overview
 
-#A core similarities:
+The recommender evolves through multiple stages:
 
--danceability
--energy
--valence
--tempo
--loudness
--acousticness
--instrumentalness
--liveness
--speechiness
+1. Cold start recommendations
+2. Exploration-oriented fallback recommendations
+3. Similarity-based ranking
+4. Supervised machine learning models
+5. Gradient-boosted models for advanced users
+6. TODO: Neural-Network suggester
 
-how a song "sounds"
-These are the only inputs to similarity calculations.
+Each stage is selected dynamically based on user confidence and interaction count.
 
-#B Ranking modifiers:
+---
 
--popularity
--explicit
--duration_ms
+## Core Concepts
 
-criteria for song rankings applied after similarity calculation.
+### Multi-Taste User Profile
 
-#C Identity:
+A user is represented by multiple independent taste profiles.
+Each taste profile corresponds to a coherent musical cluster and contains:
 
--track_name
--artist
--album_name
--track_id
--track_genre
+* A centroid vector of liked and weighted disliked songs
+* A confidence score derived from feedback
+* A liked songs counter
+* A disliked songs counter
+* A genre distribution
 
-displayable columns only (album could be used as a grouping or diversity constraint)
+Taste profiles are never merged.
 
+---
 
-#D Discrete metadata:
+## Genre Clustering
 
--key
--mode
--time_signature
+Genres are grouped into semantic clusters to improve stability, interpretability, and exploration.
 
-normalize dataset (use scikit-learn)
+Clusters are used to:
 
+* Initialize taste profiles
+* Control exploration
+* Split recommendations across tastes
+* Train per-taste models
 
-Create a “default recommendation list” when no user-data is present
+Ambient, white-noise, background, and sleep-related genres are explicitly excluded.
 
--Based on popularity
--With artist and genre variety
+---
 
+## Recommendation Pipeline
 
-User profile:
- `a user is the average of the songs they like`
--User likes a song -> update profile
--User dislikes a song -> ignore or downweight (might add "indifferent" choice)
+### Cold Start
+
+Used when the user has little or no confidence.
+
+Characteristics:
+
+* Popularity-aware filtering
+* Artist diversity
+* Cluster diversity
+* No personalization assumptions
+
+Placeholder image:
+
+```
+[ IMAGE PLACEHOLDER: Cold start recommendations ]
+```
+
+---
+
+### Fallback Recommender
+
+Used when confidence is low to medium-low.
+
+Characteristics:
+
+* Less popular songs to explore
+* Majority of recommendations from strong taste profiles
+* Small fraction (about 20 percent) from weak or inactive profiles
+* Songs scoring
+* Encourages controlled exploration
+
+Placeholder image:
+
+```
+[ IMAGE PLACEHOLDER: Exploration vs exploitation behavior ]
+```
+
+---
+
+### Ranking Recommender
+
+Used when a stable profile exists (medium confidence).
+
+Characteristics:
+
+* Cosine similarity against taste profile vectors
+* Weighted audio features
+* Dislike-aware penalties
+* Stable and exploitative behavior
+
+---
+
+### Model-Based Recommender
+
+Activated once sufficient feedback has been collected.
+
+Characteristics:
+
+* One model per taste profile
+* Even split of recommendations across active tastes
+* Small exploration from weakest profiles
+* Models trained only when enough samples are available
+
+---
+
+## Machine Learning Models
+
+### Features
+
+All models operate on Spotify-style audio features:
+
+* Danceability
+* Energy
+* Valence
+* Tempo
+* Loudness
+* Acousticness
+* Instrumentalness
+* Liveness
+* Speechiness
+
+### Models Used
+
+* Logistic Regression for early supervised learning
+* LightGBM for advanced users with large interaction histories
+
+Each taste profile has its own model, trained only if it has enough positive and negative samples.
+
+---
+
+## Model Training Strategy
+
+* Models are retrained every N interactions
+* Profiles with insufficient samples are locked out from training
+* Early stopping is used for LightGBM
+* Performance metrics (AUC, LogLoss) are logged per profile
+
+Placeholder image:
+
+```
+[ IMAGE PLACEHOLDER: Model performance logs ]
+```
+
+---
+
+## User Feedback
+
+The system uses explicit feedback:
+
+* Like
+* Dislike
+
+Feedback updates:
+
+* Taste profile vectors
+* Confidence scores
+* Genre distributions
+* Training datasets
+
+---
+
+## Simulated Users
+
+A deterministic simulated user system is included.
+
+Characteristics:
+
+* Seed-based reproducibility
+* Stable internal preferences
+* Useful for testing exploration and convergence behavior
+* Allows benchmarking different algorithms
+
+---
+
+## License
+
+MIT License
