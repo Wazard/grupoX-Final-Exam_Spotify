@@ -9,11 +9,11 @@ FEATURE_WEIGHTS = {
 }
 WEIGHTS = np.array([FEATURE_WEIGHTS[f] for f in SIMILARITY_FEATURES])
 GENRE_CLUSTERS = {
-    "pop_mainstream": [
-        "pop", "indie-pop", "power-pop", "british", "happy"
+    "Pop mainstream": [
+        "pop", "indie-pop", "power-pop", "british"
     ],
 
-    "dance_edm": [
+    "Dance/EDM": [
         "dance", "edm", "club", "party", "disco", "synth-pop"
     ],
 
@@ -21,98 +21,95 @@ GENRE_CLUSTERS = {
         "pop-film", "disney", "show-tunes", "children"
     ],
 
-    "house_melodic": [
+    "House/Melodic": [
         "house", "deep-house", "progressive-house", "chicago-house", "garage"
     ],
 
-    "techno_industrial": [
+    "Techno/Industrial": [
         "techno", "minimal-techno", "detroit-techno", "industrial"
     ],
 
-    "bass_breaks": [
+    "Bass breaks": [
         "drum-and-bass", "dubstep", "breakbeat", "dub", "electro", "idm"
     ],
 
-    "rock_classic_alt": [
+    "Rock classic/alternative": [
         "rock", "alt-rock", "alternative", "hard-rock",
         "rock-n-roll", "rockabilly", "psych-rock", "grunge"
     ],
 
-    "indie_british": [
-        "indie", "british"
+    "Indie/British": [
+        "indie", "british", "j-dance"
     ],
 
-    "metal_traditional": [
+    "Metal": [
         "metal", "heavy-metal"
     ],
 
-    "metal_extreme": [
+    "Extreme metal": [
         "death-metal", "black-metal", "grindcore",
         "hardcore", "metalcore"
     ],
 
-    "punk_emo_goth": [
+    "Punk/Emo/Goth": [
         "punk", "punk-rock", "emo", "goth"
     ],
 
-    "hiphop_rnb": [
+    "HipHop/RNB": [
         "hip-hop", "r-n-b", "soul", "funk", "groove"
     ],
 
-    "reggae_ska": [
+    "Ragge/Ska": [
         "reggae", "reggaeton", "dancehall", "ska"
     ],
 
-    "jazz_blues": [
+    "Jazz/Blues": [
         "jazz", "blues"
     ],
 
-    "folk_acoustic": [
+    "Folk/Acoustic": [
         "acoustic", "folk", "singer-songwriter",
-        "guitar", "piano", "bluegrass"
+        "guitar", "piano", "bluegrass", "j-dance"
     ],
 
-    "country_roots": [
+    "Country": [
         "country", "honky-tonk"
     ],
 
-    "classical_opera": [
+    "Classical/Opera": [
         "classical", "opera"
     ],
 
-    "instrumental_newage": [
+    "New age": [
         "new-age"
     ],
 
-    "latin_dance": [
-        "latin", "latino", "salsa", "samba", "tango", "reggaeton"
+    "Latin dance": [
+        "latin", "latino", "salsa", "samba", "tango"
     ],
 
-    "brazilian": [
+    "Brazilian": [
         "mpb", "pagode", "forro", "sertanejo", "brazil"
     ],
 
-    "world_nonwestern": [
+    "Non-western": [
         "indian", "iranian", "turkish", "malay", "world-music"
     ],
 
-    "european_language_pop": [
+    "European Pop": [
         "spanish", "french", "german", "swedish"
     ],
 
-    "asian_pop": [
-        "k-pop", "j-pop", "j-rock", "j-idol",
-        "j-dance", "cantopop", "mandopop", "anime"
+    "Asian Pop": [
+        "k-pop", "j-pop", "j-rock", "j-idol", "cantopop", "mandopop", "anime"
     ],
 
-    "mood_soft": [
+    "Mood soft": [
         "chill", "sad", "romance"
     ]
 }
 
-
 EPS = 1e-12  # numerical safety
-
 
 def get_similarity(
     vector_a: np.ndarray,

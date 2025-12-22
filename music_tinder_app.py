@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageSequence
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import pywinstyles
 
 import pandas as pd
 import enum
@@ -139,7 +140,7 @@ class MusicTinderApp(ctk.CTk):
 
         self.clear_frame()
 
-        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame = ctk.CTkFrame(self, fg_color="#000001")
         frame.pack(expand=True, fill="both")
         self.current_frame = frame
 
@@ -148,13 +149,14 @@ class MusicTinderApp(ctk.CTk):
 
         self.load_background()
 
-        ctk.CTkLabel(
+        title = ctk.CTkLabel(
             frame,
             text="🎵 Music Tinder",
             font=ctk.CTkFont(size=34, weight="bold")
-        ).place(relx=0.5, rely=0.06, anchor="center")
+        )
+        title.place(relx=0.5, rely=0.06, anchor="center")
 
-        controls = ctk.CTkFrame(frame, fg_color="transparent", corner_radius=24)
+        controls = ctk.CTkFrame(frame, fg_color="#000001", corner_radius=24)
         controls.place(relx=0.03, rely=0.78, anchor="w")
 
         for text, cmd in [
@@ -174,7 +176,7 @@ class MusicTinderApp(ctk.CTk):
         exit_img = Image.open(EXIT_ICON_PATH).resize((26, 26), Image.LANCZOS)
         self.exit_icon = ImageTk.PhotoImage(exit_img)
 
-        ctk.CTkButton(
+        exit_btn = ctk.CTkButton(
             frame,
             text=" Exit",
             image=self.exit_icon,
@@ -184,9 +186,13 @@ class MusicTinderApp(ctk.CTk):
             height=42,
             corner_radius=20,
             command=self.confirm_exit
-        ).place(relx=0.97, rely=0.94, anchor="se")
+        )
+        exit_btn.place(relx=0.97, rely=0.94, anchor="se")
 
         self.resize_handler = None
+        pywinstyles.set_opacity(title, color="#000001")
+        pywinstyles.set_opacity(controls, color="#000001")
+        pywinstyles.set_opacity(exit_btn, color="#000001")
 
     # ==================================================
     # BACKGROUND
@@ -414,7 +420,7 @@ class MusicTinderApp(ctk.CTk):
         self.canvas.coords(
             self.card_text,
             self.card_center[0],
-            art_y + self.ART_SIZE[1] // 2 + 60
+            art_y + self.ART_SIZE[1]
         )
 
         if song.get("track_url"):
