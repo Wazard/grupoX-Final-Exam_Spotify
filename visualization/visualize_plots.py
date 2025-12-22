@@ -129,7 +129,7 @@ def plot_global_genre_radar(
     angles = np.concatenate([angles, [angles[0]]])
     values = np.concatenate([values, [values[0]]])
 
-    _, ax = plt.subplots(subplot_kw=dict(polar=True))
+    fig, ax = plt.subplots(subplot_kw=dict(polar=True))
     ax.plot(angles, values, linewidth=2, color="darkgreen")
     ax.fill(angles, values, alpha=0.3, color="green")
 
@@ -138,11 +138,13 @@ def plot_global_genre_radar(
     ax.set_yticklabels([])
 
     ax.set_title("User Genre Preference Fingerprint")
-    plt.show()
+    #plt.show()
+
+    return fig,ax 
 
 
 def plot_global_genre_radar_from_json(
     profile_json_path: str,
 ):
     genre_vector = build_global_genre_vector(profile_json_path)
-    plot_global_genre_radar(genre_vector)
+    return plot_global_genre_radar(genre_vector)
