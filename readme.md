@@ -5,6 +5,10 @@ It models multiple independent musical tastes per user and progressively upgrade
 
 The system is designed to handle users with diverse, even contradictory tastes (for example metal, J-pop, and Latin music) without collapsing them into a single preference vector.
 
+<p align='center'>
+  <img src="assets/app_menu.png">
+</p>
+
 ---
 
 ## Overview
@@ -37,7 +41,7 @@ Each taste profile corresponds to a coherent musical cluster and contains:
 
 Taste profiles are never merged together.
 
-Profile plotting:
+<h3 align='center'> Profile plotting:</h3>
 
 <p float='left'>
   <img src="plots/Plotting_figure_1.png" width="49%">
@@ -78,10 +82,11 @@ Characteristics:
 * Cluster diversity
 * No personalization assumptions
 
-Cold start recommendations:
+<h3 align='center'> Cold start recommendations:</h3>
 
+<p align='center'>
 <img src="plots/Cold_start.png">
-
+</p>
 ---
 
 ### Fallback Recommender
@@ -96,10 +101,10 @@ Characteristics:
 * Songs scoring
 * Encourages controlled exploration
 
-Fallback recommendations:
-
+<h3 align='center'> Fallback recommendations:</h3>
+<p align='center'>
 <img src="plots/fallback.png">
-
+</p>
 ---
 
 ### Ranking Recommender
@@ -113,10 +118,11 @@ Characteristics:
 * Dislike-aware penalties
 * Stable and exploitative behavior
 
-Ranking algorithm:
 
+<h3 align='center'> Ranking algorithm:</h3>
+<p align='center'>
 <img src="plots/ranking.png">
-
+</p>
 ---
 
 ### Model-Based Recommender
@@ -164,11 +170,18 @@ Each taste profile has its own model, trained only if it has enough positive and
 * Early stopping is used for LightGBM
 * Performance metrics (AUC, LogLoss) are logged per profile
 
-<p float='left'>
-  <img src="plots/booster_model_training.png" width='33%'>
-  <img src="plots/booster_model.png" width='33%'>
-  <img src="plots/linear_model.png" width='33%'>
-</p>
+  <h3 align='center'> LinearRegressor Prediction </h3>
+  <p align='center'>
+    <img src="plots/linear_model.png">
+  </p>
+  <h3 align='center'> LGBM Prediction phase</h3>
+  <p align='center'>
+    <img src="plots/booster_model.png">
+  </p>
+  <h3 align='center'> LGBM Training phase</h3>
+  <p align='center'>
+    <img src="plots/booster_model_training.png" align='center'>
+  </p>
 
 ---
 
