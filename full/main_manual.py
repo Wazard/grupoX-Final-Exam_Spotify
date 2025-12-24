@@ -13,7 +13,7 @@ NOTE IMPORTANTI:
 - salva comunque log + grafici (una nuova cartella ogni run)
 
 Uso:
-  python main_manual.py --csv tracks_with_clusters.csv
+  python full\main_manual.py --csv tracks_with_clusters.csv
 """
 
 from __future__ import annotations
