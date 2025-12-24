@@ -48,6 +48,8 @@ import matplotlib.pyplot as plt
 from data_utils import load_songs_csv, ensure_feature_cols
 from cold_start_clustered import build_cold_start, ask_labels
 
+from tqdm import tqdm
+
 # Try importing the updated TS implementation first
 try:
     from hierarchical_ts_genre_forgetting import FullHierarchicalTS  # type: ignore
@@ -557,7 +559,7 @@ def main() -> None:
 
     raw_rows = []
 
-    for seed in range(int(args.seeds)):
+    for seed in tqdm(range(int(args.seeds)), desc="Running seeds", unit="seed"):
         # simulator
         sim = make_simulator(
             sim_name=str(args.sim),
