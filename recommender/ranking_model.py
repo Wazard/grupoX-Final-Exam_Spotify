@@ -33,7 +33,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import roc_auc_score, log_loss
 
 from recommender.helper.functions import build_training_data_for_profile
-from evaluation.metrics import SIMILARITY_FEATURES, BANNED_GENRES, get_similarity, WEIGHTS
+from evaluation.metrics import SIMILARITY_FEATURES, BANNED_GENRES, WEIGHTS
 from user.profile import UserProfile
 
 
