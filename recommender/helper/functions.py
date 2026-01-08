@@ -13,6 +13,7 @@ def build_training_data_for_profile(
     profile: TasteProfile,
     liked_ids: list[str],
     disliked_ids: list[str],
+    rank=False
 ):
     """
     Build training data ONLY from genres belonging
@@ -34,11 +35,15 @@ def build_training_data_for_profile(
     liked["target"] = 1
     disliked["target"] = 0
 
-    data = pd.concat([liked, disliked], axis=0)
+    data = pd.concat([liked, disliked], axis=0).copy()
 
-    X = data[SIMILARITY_FEATURES].values.astype(np.float32)
+    X = data[SIMILARITY_FEATURES].to_numpy(dtype=np.float32)
     y = data["target"].values.astype(np.int32)
 
+    group = np.array([len(data)], dtype=np.float32)
+
+    if rank:
+        return X, y, group
     return X, y
 
 

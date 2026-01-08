@@ -1,5 +1,5 @@
 from features.spotify_api           import get_spotify_links_and_images, SpotifyTokenManager
-from recommender.model_data         import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.linear_model         import generate_linear_model_rank, train_linear_models_if_needed
 from recommender.light_gbm_new      import generate_lgbm_rank, train_lgbms_if_needed
 from user.user_simulator            import simulate_user_feedback, N_TOTAL_TRACKS
 from recommender.new_cold_start     import generate_cold_start_songs
@@ -15,7 +15,7 @@ import time
 DATA_PATH = "data/processed/tracks_processed_normalized.csv"
 BATCH_SIZE = 10             # must be <= 50 for Spotify batch endpoints
 COLD_START_BATCH_MUL = 2    # multiplier for cold start batch size, 1 = batch_size, 2 = 2*batch_size
-SIMULATED_USER_SEED = 262
+SIMULATED_USER_SEED = 42
 
 # CAPS
 COLD_START_BATCH_MUL = min(
@@ -28,7 +28,7 @@ class App:
         COLD_START = 0
         FALLBACK = 1
         RANKING = 2
-        LINEAR_MODEL = 3
+        MODEL = 3
         BOOST_MODEL = 4
 
     def __init__(self):
@@ -102,7 +102,7 @@ class App:
         if c < 8 or n < 200:
             return self.Recommender.RANKING
         if c < 12 or n < 2000:
-            return self.Recommender.LINEAR_MODEL
+            return self.Recommender.MODEL
         
         return self.Recommender.BOOST_MODEL
     
@@ -143,8 +143,8 @@ class App:
                     n_songs=BATCH_SIZE,
                 )
 
-            elif mode == self.Recommender.LINEAR_MODEL:
-                print("\n--- Linear Model ---")
+            elif mode == self.Recommender.MODEL:
+                print("\n--- Ranking Model ---")
 
                 # Train / refresh per-taste models only when needed
                 self.last_linear_model_train_seen = train_linear_models_if_needed(

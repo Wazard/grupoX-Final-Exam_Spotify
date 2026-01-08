@@ -245,8 +245,11 @@ def train_lgbms_if_needed(
             profile.best_logloss = new_logloss
             profile.best_auc = new_auc
 
-            new_model.save_model(str(_model_path(profile)))
-
+            try:
+                new_model.save_model(str(_model_path(profile)))
+            except Exception as e:
+                print("error ", e)
+    
             print(
                 f"[LGBM] Updated model for {profile.cluster_name} | "
                 f"logloss={new_logloss:.4f} | auc={new_auc:.4f}"

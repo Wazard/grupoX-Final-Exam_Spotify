@@ -43,6 +43,7 @@ def generate_linear_model_rank(
     user_profile: UserProfile,
     seen_track_ids: set[str],
     n_songs: int,
+    min_confidence_active: float = 1.0
 ):
     if df.empty or not user_profile.has_profile():
         return pd.DataFrame()
@@ -54,14 +55,16 @@ def generate_linear_model_rank(
     df = df[~df["track_genre"].str.contains(pattern, case=False, na=False)]
 
     # Remove seen tracks (FIRST pass)
+    seen_track_ids = set(map(str, seen_track_ids))
     df = df[~df["track_id"].isin(seen_track_ids)]
+
     if df.empty:
         return pd.DataFrame()
 
     # -----------------------------------------
     # PROFILE SPLITS
     # -----------------------------------------
-    active_profiles = user_profile.get_active_profiles(min_confidence=1.0)
+    active_profiles = user_profile.get_active_profiles(min_confidence=min_confidence_active)
     if not active_profiles:
         return pd.DataFrame()
 
@@ -70,7 +73,7 @@ def generate_linear_model_rank(
         key=lambda p: p.confidence
     )
 
-    exploitation_budget = n_songs - EXPLORATION_EXTRA
+    exploitation_budget = max(1, n_songs - EXPLORATION_EXTRA)
     per_profile = max(1, exploitation_budget // len(active_profiles))
 
     results = []
@@ -79,12 +82,12 @@ def generate_linear_model_rank(
     # EXPLOITATION (ACTIVE PROFILES)
     # -----------------------------------------
     for profile in active_profiles:
-        model = getattr(profile, "model", None)
+        model = profile.model
         if model is None:
             continue
 
         candidates = df[df["track_genre"].isin(profile.genres)]
-        if len(candidates) < 5:
+        if candidates.empty:
             continue
 
         X = candidates[SIMILARITY_FEATURES].values.astype(np.float32)
@@ -123,16 +126,18 @@ def generate_linear_model_rank(
         exploration_budget -= take
 
     # -----------------------------------------
-    # FINAL MERGE (SECOND SEEN FILTER IS CRUCIAL)
+    # FINAL MERGE (SECOND SEEN FILTER IS CRUCIAL AS)
     # -----------------------------------------
-    final = pd.concat([exploited] + exploration, axis=0)
+    final = pd.concat([exploited] + exploration, axis=0, ignore_index=True)
+
+    final = final.drop_duplicates(subset="track_id", keep="first")
+
+    mask = ~final["track_id"].isin(seen_track_ids)
 
     final = (
-        final
-        .drop_duplicates("track_id")
-        .loc[~final["track_id"].isin(seen_track_ids)]
-        .head(n_songs)
-        .reset_index(drop=True)
+        final.loc[mask]
+            .head(n_songs)
+            .reset_index(drop=True)
     )
 
     return final

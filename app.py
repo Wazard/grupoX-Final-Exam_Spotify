@@ -1,5 +1,6 @@
 from features.spotify_api           import get_spotify_links_and_images, SpotifyTokenManager
-from recommender.model_data         import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.linear_model       import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.ranking_model      import generate_lambdarank_model_rank, train_rankers_if_needed
 from recommender.light_gbm_new      import generate_lgbm_rank, train_lgbms_if_needed
 from user.user_simulator            import simulate_user_feedback, N_TOTAL_TRACKS
 from recommender.fallback_optimized import generate_fallback_songs
@@ -198,14 +199,14 @@ class App:
                 print("\n--- Linear Model ---")
 
                 # Train / refresh per-taste models only when needed
-                self.last_linear_model_train_seen = train_linear_models_if_needed(
+                self.last_linear_model_train_seen = train_rankers_if_needed(
                     df=self.df,
                     user_profile=self.user_profile,
                     last_train_seen=self.last_linear_model_train_seen,
                 )
 
                 # Generate recommendations using ALL taste profiles
-                recommended_tracks = generate_linear_model_rank(
+                recommended_tracks = generate_lambdarank_model_rank(
                     df=self.df,
                     user_profile=self.user_profile,
                     seen_track_ids=self.user_profile.seen_song_ids,

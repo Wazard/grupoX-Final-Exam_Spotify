@@ -14,7 +14,7 @@ from io import BytesIO
 
 # ================= BACKEND IMPORTS =================
 from features.spotify_api           import get_spotify_links_and_images, SpotifyTokenManager
-from recommender.model_data         import generate_linear_model_rank, train_linear_models_if_needed
+from recommender.ranking_model      import generate_lambdarank_model_rank, train_rankers_if_needed
 from recommender.light_gbm_new      import generate_lgbm_rank, train_lgbms_if_needed
 from recommender.new_cold_start     import generate_cold_start_songs
 from recommender.fallback_optimized import generate_fallback_songs
@@ -266,10 +266,10 @@ class MusicTinderApp(ctk.CTk):
         elif mode == self.Recommender.RANKING:
             recs = generate_ranking(self.df, self.user_profile, BATCH_SIZE)
         elif mode == self.Recommender.LINEAR_MODEL:
-            self.last_linear_model_train_seen = train_linear_models_if_needed(
+            self.last_linear_model_train_seen = train_rankers_if_needed(
                 self.df, self.user_profile, self.last_linear_model_train_seen
             )
-            recs = generate_linear_model_rank(
+            recs = generate_lambdarank_model_rank(
                 self.df, self.user_profile,
                 self.user_profile.seen_song_ids, BATCH_SIZE
             )
@@ -498,6 +498,3 @@ class MusicTinderApp(ctk.CTk):
         if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
             self.destroy()
 
-
-if __name__ == "__main__":
-    MusicTinderApp().mainloop()

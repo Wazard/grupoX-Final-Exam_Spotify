@@ -138,7 +138,7 @@ def plot_global_genre_radar(
     ax.set_yticklabels([])
 
     ax.set_title("User Genre Preference Fingerprint")
-    #plt.show()
+    plt.show()
 
     return fig,ax 
 
