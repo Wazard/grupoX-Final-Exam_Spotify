@@ -105,6 +105,8 @@ def main() -> None:
         t += 1
 
     # --- Loop manuale ---
+    
+    exit_early = False
     print("\n=== INIZIO RACCOMANDAZIONI (MANUALE) ===\n")
     for step in range(args.max_steps):
         track_id, cluster_idx = ts.recommend_one()
@@ -123,12 +125,15 @@ def main() -> None:
             if s == "q":
                 print("Uscita manuale.")
                 step = args.max_steps
+                exit_early = True
                 break
             if s in {"0", "1"}:
                 reward = int(s)
                 break
             print("Input non valido.")
 
+        if exit_early:
+            break
         ts.update(track_id=str(track_id), reward=int(reward))
         tracker.log(t=t, track_id=str(track_id), cluster=int(row["cluster"]), p_pred=p_pred, reward=int(reward))
         t += 1
