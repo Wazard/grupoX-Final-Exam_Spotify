@@ -1,5 +1,4 @@
 from features.spotify_api           import get_spotify_links_and_images, SpotifyTokenManager
-from recommender.linear_model       import generate_linear_model_rank, train_linear_models_if_needed
 from recommender.ranking_model      import generate_lambdarank_model_rank, train_rankers_if_needed
 from recommender.light_gbm_new      import generate_lgbm_rank, train_lgbms_if_needed
 from user.user_simulator            import simulate_user_feedback, N_TOTAL_TRACKS
