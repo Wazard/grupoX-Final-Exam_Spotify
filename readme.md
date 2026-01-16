@@ -161,7 +161,7 @@ Il modello aggiorna online il posterior (Thompson Sampling) e propone la prossim
 **Output:** tutti i feedback vengono salvati in `logs/interaction_log.csv`:  
 `user_id,song_id,like`  
 `1,12345,1`  
-`1,67890,0`  
+`2,67890,0`  
 
 ---
 
@@ -171,7 +171,7 @@ La Simulation Mode permette di simulare interazioni multiple su utenti artificia
 
 **Esecuzione base:**  
 ```bash
-`python benchmark_v4.py --csv tracks_with_clusters.csv --T 2000 --seeds 20 --sim feature_shock_hard --o`
+`python benchmark_v4.py --csv tracks_with_clusters.csv --T 2000 --seeds 20 --sim feature_shock_hard --out`benchmark_results
 ```
 
 T: number of interactions per seed
