@@ -137,8 +137,29 @@ Esempio di esecuzione:
 
 ```bash
 py full/main_manual.py --csv tracks_with_clusters.csv
+```
 
+Guarda il file main_manual.py per maggiori dettagli.
 ---
+
+### Manual simulazioni
+
+La modalità manuale permette di eseguire il sistema in modo semplice e controllato, ed è utile per:
+- test qualitativi
+- debug
+- analisi di singole configurazioni
+
+```bash
+Usage:
+  python benchmark_v4.py --csv tracks_with_clusters.csv --T 2000 --seeds 20 --sim feature_shock_hard --out benchmark_results
+```
+
+T: number of interactions per seed
+seeds: number of simulated users
+sim: simulator type (see above)
+Out: name of output folder (a unique subfolder is created inside)
+
+Guarda il file benchmark_v5.py per maggiori dettagli.
 
 ## Conclusioni
 
