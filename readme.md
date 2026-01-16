@@ -121,37 +121,57 @@ In particolare include:
 Questa cartella rappresenta il **motore del sistema**: a partire dal dataset preprocessato, consente di simulare interazioni, aggiornare il modello online e valutare le performance.
 
 ---
+# Running the System
 
-## Running the System
+Il sistema può essere eseguito in due modalità principali: **Manual Mode** e **Simulation Mode**.  
 
-Il sistema può essere eseguito in due modalità principali.
-
-### Manual Mode
-
-La modalità manuale permette di eseguire il sistema in modo semplice e controllato, ed è utile per:
-- test qualitativi
-- debug
-- analisi di singole configurazioni
-
-Esempio di esecuzione:
-
-```bash
-py full/main_manual.py --csv tracks_with_clusters.csv
-```
-
-Guarda il file main_manual.py per maggiori dettagli.
 ---
 
-### Manual simulazioni
+## Manual Mode
 
-La modalità manuale permette di eseguire il sistema in modo semplice e controllato, ed è utile per:
-- test qualitativi
-- debug
-- analisi di singole configurazioni
+La modalità manuale permette di **interagire direttamente con il sistema**, utile per test qualitativi, debug e analisi di singole configurazioni.  
 
+**Flusso passo-passo:**  
+1. **Caricare il dataset preprocessato con cluster:**  
 ```bash
-Usage:
-  python benchmark_v4.py --csv tracks_with_clusters.csv --T 2000 --seeds 20 --sim feature_shock_hard --out benchmark_results
+`py full/main_manual.py --csv tracks_with_clusters.csv`  
+```
+Il sistema seleziona una canzone iniziale usando il cold start basato su cluster e popolarità.  
+
+2. **Interazione utente:** per ogni canzone proposta, l’utente può dare feedback tramite input, ad esempio:  
+`Song: Blinding Lights - The Weeknd`  
+`Danceability: 0.8, Energy: 0.9`  
+`Do you like it? (y/n):`  
+
+Il modello aggiorna online il posterior (Thompson Sampling) e propone la prossima raccomandazione. L’interazione continua finché l’utente non decide di terminare.  
+
+**Esempio di sessione:**  
+`Loaded 5000 tracks from tracks_with_clusters.csv`  
+`Starting Manual Mode...`  
+`Song: Blinding Lights - The Weeknd`  
+`Danceability: 0.8, Energy: 0.9`  
+`Do you like it? (y/n): y`  
+`Updating model...`  
+`Next song: Levitating - Dua Lipa`  
+`Do you like it? (y/n): n`  
+`Updating model...`  
+`Next song: Save Your Tears - The Weeknd`  
+`Do you like it? (y/n): y`  
+
+**Output:** tutti i feedback vengono salvati in `logs/interaction_log.csv`:  
+`user_id,song_id,like`  
+`1,12345,1`  
+`1,67890,0`  
+
+---
+
+## Simulation Mode
+
+La Simulation Mode permette di simulare interazioni multiple su utenti artificiali, utile per valutazioni quantitative e benchmark.  
+
+**Esecuzione base:**  
+```bash
+`python benchmark_v4.py --csv tracks_with_clusters.csv --T 2000 --seeds 20 --sim feature_shock_hard --o`
 ```
 
 T: number of interactions per seed

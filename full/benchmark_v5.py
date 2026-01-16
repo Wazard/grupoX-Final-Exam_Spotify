@@ -45,6 +45,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from tqdm import tqdm
+
 from data_utils import load_songs_csv, ensure_feature_cols
 from cold_start_clustered import build_cold_start, ask_labels
 
@@ -563,7 +565,7 @@ def main() -> None:
 
     raw_rows = []
 
-    for seed in range(int(args.seeds)):
+    for seed in tqdm(range(int(args.seeds)), desc="Running seeds", unit="seed"):
         # simulator
         sim = make_simulator(
             sim_name=str(args.sim),
