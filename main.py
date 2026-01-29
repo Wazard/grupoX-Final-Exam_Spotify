@@ -1,5 +1,4 @@
-from app import App
+from music_tinder_app import MusicTinderApp
 
 if __name__ == "__main__":
-    app = App()
-    app.run()
+    MusicTinderApp().mainloop()

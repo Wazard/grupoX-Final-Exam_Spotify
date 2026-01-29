@@ -1,91 +1,127 @@
 from features.song_representation import vectorize_songs_batch
 from evaluation.metrics import get_similarity, WEIGHTS
+from user.profile import UserProfile
 import pandas as pd
 import numpy as np
 
-GENRE_WEIGHT = .2
+N_SONGS = 10
 
-def generate_ranking(df: pd.DataFrame, user_vector: np.ndarray[float], liked_track_ids:np.ndarray[float], disliked_track_ids:np.ndarray[float], n_songs: int):
+DISLIKE_PENALTY = 0.30
+MIN_SIM_PROFILE = 0.40   # stricter than fallback
 
-    # Define seen tracks
-    seen_track_ids = set(liked_track_ids + disliked_track_ids)
-    
-    # Define user's song duration preference
-    liked_durations = df[df["track_id"].isin(liked_track_ids)]["duration_s"]
 
-    user_duration_mean = liked_durations.mean()
-    user_duration_std = liked_durations.std()
+def generate_ranking(
+    df: pd.DataFrame,
+    user_profile: UserProfile,
+    n_songs: int = N_SONGS
+) -> pd.DataFrame:
+    """
+    Multi-profile exploitative ranking recommender.
 
-    # Define user's explicit preference
-    liked_explicit_ratio = (df[df["track_id"].isin(liked_track_ids)]["explicit"].mean())
-    disliked_explicit_ratio = (df[df["track_id"].isin(disliked_track_ids)]["explicit"].mean())
+    Strategy:
+    - Score each song against its closest taste profile
+    - Strong alignment required
+    - Confidence-weighted exploitation
+    """
 
-    explicit_preference = 2
-    if liked_explicit_ratio > 0.6 and disliked_explicit_ratio < 0.4:
-        explicit_preference = 1
-    elif liked_explicit_ratio < 0.4 and disliked_explicit_ratio > 0.6:
-        explicit_preference = 0
+    taste_profiles = user_profile.taste_profiles
+    seen_track_ids = user_profile.seen_song_ids
+    disliked_track_ids = user_profile.disliked_song_ids
 
-    # --- Phase 1: remotion seen tracks ---
+    # ---------- Phase 1: candidate pool ----------
     candidates = df.dropna()
     candidates = candidates[~candidates["track_id"].isin(seen_track_ids)]
 
-    # --- Phase 2: weighting by genre ---
-    genre_counts = candidates["track_genre"].value_counts()
-    genre_weights = {
-        genre: 1 / np.sqrt(count)
-        for genre, count in genre_counts.items()
-    }
-    # Calculating user norms
-    user_vector_weighted = user_vector * WEIGHTS
-    user_vector_norm = np.linalg.norm(user_vector_weighted)
+    if candidates.empty or not taste_profiles:
+        return pd.DataFrame()
 
-    scored_candidates = []
-
-    # --- Phase 3: vectorize songs ---
+    # ---------- Phase 2: precompute vectors ----------
     if "vector" not in candidates.columns:
         candidates = candidates.copy()
         candidates["vector"] = list(vectorize_songs_batch(candidates))
 
-    # --- Phase 4: scoring ---
-    for row in candidates.itertuples(index=False):
+    # ---------- Phase 3: prepare profiles ----------
+    active_profiles = [
+        p for p in taste_profiles
+        if p.confidence > 0 and np.linalg.norm(p.vector) > 0
+    ]
 
+    if not active_profiles:
+        return pd.DataFrame()
+
+    profile_vectors = [p.vector * WEIGHTS for p in active_profiles]
+    profile_norms = [np.linalg.norm(v) for v in profile_vectors]
+    profile_conf = [p.confidence for p in active_profiles]
+
+    # ---------- Phase 4: disliked centroid (global soft penalty) ----------
+    disliked_df = df[df["track_id"].isin(disliked_track_ids)]
+    if not disliked_df.empty:
+        disliked_vectors = vectorize_songs_batch(disliked_df)
+        disliked_centroid = np.mean(np.array(disliked_vectors), axis=0) * WEIGHTS
+        disliked_norm = np.linalg.norm(disliked_centroid)
+    else:
+        disliked_centroid = None
+        disliked_norm = None
+
+    scored = []
+
+    # ---------- Phase 5: scoring ----------
+    for row in candidates.itertuples(index=False):
         song_vec = row.vector * WEIGHTS
         song_norm = np.linalg.norm(song_vec)
-        score = get_similarity(song_vec, user_vector, song_norm, user_vector_norm)
+        if song_norm == 0:
+            continue
 
-        score += genre_weights.get(row.track_genre, 0.0) * GENRE_WEIGHT
-        scored_candidates.append((score, row))
+        # ---- find best matching taste profile ----
+        sims = [
+            get_similarity(song_vec, pv, song_norm, pn)
+            for pv, pn in zip(profile_vectors, profile_norms)
+        ]
 
-        if explicit_preference == 1 and row.explicit:
-            score += 0.03
-        elif explicit_preference == 0 and row.explicit:
-            score -= 0.03
+        best_idx = int(np.argmax(sims))
+        best_sim = sims[best_idx]
 
-        if not np.isnan(user_duration_std) and user_duration_std > 0:
-            z = abs(row.duration_s - user_duration_mean) / user_duration_std
-            duration_penalty = min(z * 0.05, 0.15)
-            score -= duration_penalty
+        # Hard reject weak matches
+        if best_sim < MIN_SIM_PROFILE:
+            continue
 
-    
-    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+        score = best_sim * (1.0 + np.log1p(profile_conf[best_idx]))
 
-    # --- Phase 5: diversity-aware selection ---
-    selected_rows = []
+        # ---- disliked penalty (global) ----
+        if disliked_centroid is not None and disliked_norm > 0:
+            sim_disliked = get_similarity(
+                song_vec, disliked_centroid, song_norm, disliked_norm
+            )
+            score -= sim_disliked * DISLIKE_PENALTY
+
+        scored.append((score, row, best_idx))
+
+    if not scored:
+        return pd.DataFrame()
+
+    # ---------- Phase 6: rank ----------
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # ---------- Phase 7: balance across profiles ----------
+    selected = []
     used_artists = set()
-    used_genres = set()
+    profile_counts = {}
 
-    for score, row in scored_candidates:
+    for score, row, profile_idx in scored:
         if row.artists in used_artists:
             continue
-        if row.track_genre in used_genres:
+
+        profile_counts.setdefault(profile_idx, 0)
+
+        # prevent single taste domination
+        if profile_counts[profile_idx] > n_songs * 0.6:
             continue
 
-        selected_rows.append(row)
+        selected.append(row)
         used_artists.add(row.artists)
-        used_genres.add(row.track_genre)
+        profile_counts[profile_idx] += 1
 
-        if len(selected_rows) == n_songs:
+        if len(selected) == n_songs:
             break
 
-    return pd.DataFrame(selected_rows)
+    return pd.DataFrame(selected).reset_index(drop=True)

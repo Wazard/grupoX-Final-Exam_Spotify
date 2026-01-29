@@ -3,109 +3,156 @@ from evaluation.metrics import get_similarity, WEIGHTS
 import pandas as pd
 import numpy as np
 
-
 N_SONGS = 10
-POPULARITY_THRESHOLD = 75
 
-MAX_SIM_DISLIKED = 0.85
-MIN_SIM_LIKED = 0.1
+TARGET_SIM = 0.50
+SIM_SPREAD = 0.25
+GENRE_WEIGHT = 0.06
 
+DISLIKE_PENALTY = 0.25
+PROFILE_BALANCE = 0.7   # how evenly we sample from taste profiles
 
 def generate_fallback_songs(
     df: pd.DataFrame,
-    liked_vectors: list[list[float]],
-    disliked_vectors: list[list[float]],
+    user_profile,
     seen_track_ids: set,
     n_songs: int = N_SONGS
 ) -> pd.DataFrame:
     """
-    Optimized fallback recommender.
+    Multi-profile fallback recommender.
 
-    Optimizations applied:
-    - Precomputed song vectors (no repeated vectorization)
-    - Precomputed norms for similarity (no repeated norm computation)
-    - Replaced iterrows() with itertuples()
+    Strategy:
+    - 80% from strongest / active profiles
+    - 20% from weakest / inactive profiles
     """
 
-    # --- Phase 1: candidate pool pruning ---
+    taste_profiles = user_profile.taste_profiles
+    seen_track_ids = user_profile.seen_song_ids
+    # ---------- Phase 1: candidate pool ----------
     candidates = df.dropna()
     candidates = candidates[~candidates["track_id"].isin(seen_track_ids)]
-    candidates = candidates[candidates["popularity"] < POPULARITY_THRESHOLD]
 
-    # --- Phase 2: compute genre rarity weights ---
-    genre_counts = candidates["track_genre"].value_counts()
-    genre_weights = {
-        genre: 1 / np.sqrt(count)
-        for genre, count in genre_counts.items()
-    }
+    if candidates.empty or not taste_profiles:
+        return pd.DataFrame()
 
-    # --- OPTIMIZATION 1: precompute vectors once ---
-    # Avoids calling vectorize_song inside the loop
+    # ---------- Phase 2: precompute vectors ----------
     if "vector" not in candidates.columns:
         candidates = candidates.copy()
         candidates["vector"] = list(vectorize_songs_batch(candidates))
 
-    # --- OPTIMIZATION 2: convert liked/disliked vectors to NumPy ---
-    np_liked_vectors = np.array(liked_vectors)
-    np_disliked_vectors = np.array(disliked_vectors)
+    # ---------- Phase 3: prepare profiles ----------
+    active_profiles = [
+        p for p in taste_profiles
+        if p.confidence > 0 and np.linalg.norm(p.vector) > 0
+    ]
 
-    weighted_liked_norms = np.linalg.norm(np_liked_vectors * WEIGHTS, axis=1)          #  calculating weights out of get_similarity_weighted 
-    weighted_disliked_norms = np.linalg.norm(np_disliked_vectors * WEIGHTS, axis=1)    #          as it's faster doing it all at once
+    active_profile_vectors = [
+        p.vector * WEIGHTS for p in active_profiles
+    ]
+    active_profile_norms = [
+        np.linalg.norm(v) for v in active_profile_vectors
+    ]
 
-    scored_candidates = []
+    inactive_profiles = [tp for tp in taste_profiles if tp not in active_profiles]
 
-    # --- OPTIMIZATION 3: use itertuples (much faster than iterrows) ---
+    inactive_profile_vectors = [
+        p.vector * WEIGHTS for p in inactive_profiles
+    ]
+    inactive_profile_norms = [
+        np.linalg.norm(v) for v in inactive_profile_vectors
+    ]
+    scored = []
+
+    # ---------- Phase 4: scoring ----------
     for row in candidates.itertuples(index=False):
-
-        song_vec = row.vector * WEIGHTS         # Again, weighting outside of get_similarity
+        song_vec = row.vector * WEIGHTS
         song_norm = np.linalg.norm(song_vec)
+        if song_norm == 0:
+            continue
 
-        max_sim_disliked = 0.0
-        for dv, dv_norm in zip(np_disliked_vectors, weighted_disliked_norms):
-            sim = get_similarity(song_vec, dv, song_norm, dv_norm)
-            if sim > MAX_SIM_DISLIKED:
-                max_sim_disliked = sim
-                break
+        # ---- find closest taste profile ----
+        active_sims = [
+            get_similarity(song_vec, pv, song_norm, pn)
+            for pv, pn in zip(active_profile_vectors, active_profile_norms)
+        ]
 
-        if max_sim_disliked > MAX_SIM_DISLIKED:
-            continue  # skip bad region entirely
+        inactive_sims = [
+            get_similarity(song_vec, pv, song_norm, pn) 
+            for pv, pn in zip(inactive_profile_vectors, inactive_profile_norms)
+        ]
 
-        max_sim_liked = 0.0
-        for lv, lv_norm in zip(np_liked_vectors, weighted_liked_norms):
-            sim = get_similarity(song_vec, lv, song_norm, lv_norm)
-            if sim > max_sim_liked:
-                max_sim_liked = sim
+        best_active_idx = int(np.argmax(active_sims))
+        best_active_sim = active_sims[best_active_idx]
+        active_profile = active_profiles[best_active_idx]
 
-        # --- scoring ---
-        score = 0.0
+        best_inactive_idx = int(np.argmax(inactive_sims))
+        best_inactive_sim = inactive_sims[best_inactive_idx]
+        inactive_profile = inactive_profiles[best_inactive_idx]
 
-        if max_sim_liked > MIN_SIM_LIKED:
-            score += max_sim_liked
+        # ---- exploration band score ----
+        active_exploration_score = -abs(best_active_sim - TARGET_SIM) / SIM_SPREAD
+        inactive_exploration_score = -abs(best_inactive_sim - TARGET_SIM) / SIM_SPREAD
 
-        score += genre_weights.get(row.track_genre, 0.0)
-        score -= max_sim_disliked * 0.5
+        active_score = active_exploration_score
+        inactive_score = inactive_exploration_score
 
-        scored_candidates.append((score, row))
+        # ---- confidence weighting (important!) ----
+        active_score *= (1.0 + PROFILE_BALANCE * active_profile.confidence)
+        inactive_score *= (1.0 + PROFILE_BALANCE * inactive_profile.confidence)
 
-    # --- Phase 3: sort by score ---
-    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+        # ---- genre alignment bonus ----
+        if row.track_genre in active_profile.genres:
+            active_score += GENRE_WEIGHT
 
-    # --- Phase 4: diversity-aware selection ---
-    selected_rows = []
+        if row.track_genre in inactive_profile.genres:
+            inactive_score += GENRE_WEIGHT
+
+        scored.append((active_score, inactive_score, row, active_profile.cluster_name))
+    
+    # ---------- Phase 5: rank ----------
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # ---------- Phase 6: balanced selection ----------
+    selected = []
     used_artists = set()
-    used_genres = set()
+    used_profiles = {}
 
-    for score, row in scored_candidates:
+    for _, _, row, cluster in scored:
         if row.artists in used_artists:
             continue
-        if row.track_genre in used_genres:
+
+        used_profiles.setdefault(cluster, 0)
+
+        # avoid one profile dominating
+        if used_profiles[cluster] > n_songs * 0.4:
             continue
 
-        selected_rows.append(row)
+        selected.append(row)
         used_artists.add(row.artists)
-        used_genres.add(row.track_genre)
+        used_profiles[cluster] += 1
 
-        if len(selected_rows) == n_songs:
+        if len(selected) >= n_songs * .9:
             break
+    
+    used_artists = set()
 
-    return pd.DataFrame(selected_rows)
+    scored.sort(key=lambda x: x[1], reverse=True)
+    
+    for _, _, row, cluster in scored:
+        if row.artists in used_artists:
+            continue
+
+        used_profiles.setdefault(cluster, 0)
+
+        # avoid one profile dominating
+        if used_profiles[cluster] > n_songs * 0.4:
+            continue
+
+        selected.append(row)
+        used_artists.add(row.artists)
+        used_profiles[cluster] += 1
+
+        if len(selected) >= n_songs * .1:
+            break
+    
+    return pd.DataFrame(selected).reset_index(drop=True)
