@@ -1,63 +1,65 @@
-Single user
+# MusicTinder 🎵
 
-No GUI
+A terminal-based, offline music recommendation engine that utilizes vector-space modeling to find songs based on their "sonic DNA." Unlike social-based algorithms, **MusicTinder** focuses purely on audio features and implicit user feedback to navigate a local dataset.
 
-Offline dataset only
+---
 
-Implicit feedback only (like / dislike)
+## 🎯 Core Concept
 
-Goal: suggest relevant and diverse songs
+The system operates on the principle that **a user is the mathematical average of the songs they like.** By representing songs as vectors of audio features, the engine calculates the distance between your "User Profile" and the rest of the library to find your next favorite track.
 
-#A core similarities:
+## 🏗️ Data Architecture
 
--danceability
--energy
--valence
--tempo
--loudness
--acousticness
--instrumentalness
--liveness
--speechiness
+The dataset is categorized into four functional layers to balance similarity, ranking, and display:
 
-how a song "sounds"
-These are the only inputs to similarity calculations.
+### A. Core Similarity (The "Sound")
+These features are the *only* inputs used for similarity calculations.
+* **Energy, Danceability, & Valence:** The mood and movement.
+* **Acousticness, Instrumentalness, & Liveness:** The texture of the recording.
+* **Tempo, Loudness, & Speechiness:** Technical audio properties.
 
-#B Ranking modifiers:
+### B. Ranking Modifiers
+Applied as weights *after* the similarity calculation to refine the final recommendation list.
+* **Popularity:** Boosts or penalizes tracks based on global reach.
+* **Explicit:** Filters content.
+* **Duration (ms):** Ensures recommendations meet length criteria.
 
--popularity
--explicit
--duration_ms
+### C. Identity (Display & Grouping)
+Used for the CLI output and for applying diversity constraints.
+* `track_name`, `artist`, `album_name`, `track_id`, `track_genre`.
 
-criteria for song rankings applied after similarity calculation.
+### D. Discrete Metadata
+Categorical values normalized using `scikit-learn` (StandardScaler) before processing.
+* `key`, `mode`, `time_signature`.
 
-#C Identity:
+---
 
--track_name
--artist
--album_name
--track_id
--track_genre
+## 🧠 Recommendation Logic
 
-displayable columns only (album could be used as a grouping or diversity constraint)
+### 1. The Cold Start (Default List)
+When no user history exists, MusicTinder generates a **Default Discovery** list:
+* **High Popularity:** Surfaces generally well-liked tracks.
+* **Genre Diversity:** Ensures the initial tracks cover a broad spectrum to probe user interests.
 
+### 2. Implicit Feedback Loop
+The engine relies on a "Like/Dislike" system to evolve the user profile:
+* **Like:** The song's feature vector is averaged into the **User Profile**.
+* **Dislike:** The song is ignored or used to downweight similar future suggestions.
 
-#D Discrete metadata:
+### 3. Diversity Constraint
+To prevent repetitive results, the algorithm applies a grouping constraint on `album_name` or `artist`, ensuring the top results represent a diverse range of creators.
 
--key
--mode
--time_signature
+---
 
-normalize dataset (use scikit-learn)
+## 🛠️ Tech Stack
 
+* **Interface:** CLI (No GUI)
+* **Environment:** Fully Offline
+* **Data Handling:** `pandas`, `numpy`
+* **Machine Learning:** `scikit-learn` (Normalization & Distance metrics)
 
-Create a “default recommendation list” when no user-data is present
+## 🚀 Getting Started
 
--Based on popularity
--With artist and genre variety
-
-
-User profile:
- `a user is the average of the songs they like`
--User likes a song -> update profile
--User dislikes a song -> ignore or downweight (might add "indifferent" choice)
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/Wazard/grupoX-Final-Exam_Spotify.git](https://github.com/Wazard/grupoX-Final-Exam_Spotify.git)
