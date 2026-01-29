@@ -1,4 +1,4 @@
-from recommender import music_tinder_app
+from music_tinder_app import MusicTinderApp
 
 if __name__ == "__main__":
-    music_tinder_app.MusicTinderApp().mainloop()
+    MusicTinderApp().mainloop()

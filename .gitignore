@@ -3,6 +3,10 @@
 .env
 .vscode
 __pycache__
+main.dist
+main.build
+main.onefile-build
+main.exe
 *.json
 *.txt
 *.pyc
