@@ -2,6 +2,7 @@
 .vscode
 .env
 .vscode
+__pycache__
 *.json
 *.txt
 *.pyc
